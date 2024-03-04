@@ -1,6 +1,7 @@
 import os
 import pickle
 
+#operators allowed in our queries
 class BooleanOpertors:
    operator_and = "AND"
    operator_or = "OR"
@@ -11,6 +12,7 @@ class Parentheses:
     left = "("
     right = ")"
 
+#class to handle the loading of the posting and dictionary files
 class LoadingUtil:
     def __init__(self, output_dictionary_path, output_postings_path):
         self.output_postings_path = output_postings_path
@@ -21,6 +23,7 @@ class LoadingUtil:
 
         self.__post_init__()
 
+    #ensure the path provided is correct
     def __post_init__(self):
         if not os.path.exists(self.output_postings_path):
             raise RuntimeError("ERROR: output postings path doesnt exist")
@@ -28,6 +31,7 @@ class LoadingUtil:
         if not os.path.exists(self.output_dictionary_path):
             raise RuntimeError("ERROR: output dictionary path doesnt exist")
 
+    #load the postings list for the token
     def load_postings_list(self, token):
         assert len(self.dictionary) > 0
         postings_list = str()
@@ -39,6 +43,7 @@ class LoadingUtil:
 
         return postings_list
 
+    #load the dictionary
     def load_dictionary(self):
         with open(self.output_dictionary_path, "rb") as dictionary_file:
             self.file_ids = pickle.load(dictionary_file)
@@ -47,7 +52,7 @@ class LoadingUtil:
 
         return self.file_ids, self.dictionary, all_file_postings_list
 
-
+#class for the shunting yard algorithm used in query parsing and tokenising
 class ShuntingYard:
     @staticmethod
     def parse(query):

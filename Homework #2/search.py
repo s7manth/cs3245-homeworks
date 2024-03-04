@@ -14,18 +14,25 @@ class Characters:
     EMPTY = ""
     SKIP_POINTER = "+"
 
-class Operand:
+
+# represents a token/term that is associated with a postings list
+# this class also takes care of the not operator requirement where we take a negation
+# with the universe, the postings list in that case would have all the files
+class Token:
     def __init__(self, lutil, token=Characters.EMPTY, result=[], all_files_postings_list=False):
         self.contains_results = False
 
         _, _, self.file_ids = lutil.load_dictionary()
 
+        # token (stemmed) associated with the postings list
         self.token = token
         self.starting_fp = 0
+        # postings list in flattened string form from the pickle file
         self.postings_string = (
             self.file_ids if all_files_postings_list else lutil.load_postings_list(token)
         )
 
+        # number of unique documents the token appears in
         self.frequency = len(
             list(
                 filter(
@@ -34,16 +41,18 @@ class Operand:
                 )
             )
         )
+
+        # variables that are related to character traversal on postings list string
         self.length = len(self.postings_string)
-        self.next_fp = 0
+        self.next_pointer = 0
         self.pointer_alive = 0
 
         self.final_results = []
         self.index_of_posting = 0
 
         if all_files_postings_list:
-            self.next_fp = self.starting_fp
-            self.pointer_alive = self.next_fp
+            self.next_pointer = self.starting_fp
+            self.pointer_alive = self.next_pointer
             return
 
         if self.token != Characters.EMPTY:
@@ -53,8 +62,8 @@ class Operand:
             if len(self.postings_string.strip()) == 0:
                 self.contains_results = True
             else:
-                self.next_fp = self.starting_fp
-                self.pointer_alive = self.next_fp
+                self.next_pointer = self.starting_fp
+                self.pointer_alive = self.next_pointer
             return
 
         self.contains_results = True
@@ -71,7 +80,7 @@ class Operand:
 
         result = (Characters.EMPTY, 0)
 
-        self.pointer_alive = self.next_fp
+        self.pointer_alive = self.next_pointer
         current = (
             Characters.EMPTY
             if self.pointer_alive >= len(self.postings_string)
@@ -111,9 +120,11 @@ class Operand:
         result = (skipped, characters_to_skip)
         return result
 
+    # get frequency of appearance of a particular term
     def get_frequency(self):
         return len(self.final_results) if self.contains_results else self.frequency
 
+    # get the final results from the execution
     def get_results(self):
         if self.contains_results:
             return self.final_results
@@ -122,14 +133,17 @@ class Operand:
         self.contains_results = True
         return self.final_results
 
+    # skips the lagging index pointer by interval
     def next_index_skip(self, interval):
         if self.contains_results:
             self.index_of_posting += interval
 
-    def next_fp_skip(self, interval):
+    # skips the lagging pointer by interval
+    def next_pointer_skip(self, interval):
         if not self.contains_results:
-            self.next_fp += interval
+            self.next_pointer += interval
 
+    # points to the next file id in the postings list
     def next(self):
         value = Characters.EMPTY
         if self.contains_results and self.index_of_posting < len(self.final_results):
@@ -138,9 +152,9 @@ class Operand:
 
             return value
 
-        if self.next_fp < self.starting_fp + self.length:
+        if self.next_pointer < self.starting_fp + self.length:
             accumulated = Characters.EMPTY
-            self.pointer_alive = self.next_fp
+            self.pointer_alive = self.next_pointer
 
             while value == Characters.EMPTY:
                 self.pointer_alive += 1
@@ -164,11 +178,11 @@ class Operand:
                     self.pointer_alive += 1
                 self.pointer_alive -= 1
 
-            self.next_fp = self.pointer_alive
+            self.next_pointer = self.pointer_alive
 
         return value
 
-
+# orchestrator for evaluating the boolean queries
 class Search:
     def __init__(self, dict_file, postings_file):
         self.dict_file = dict_file
@@ -186,11 +200,10 @@ class Search:
         stack = []
 
         operators = {BooleanOpertors.operator_and, BooleanOpertors.operator_or, BooleanOpertors.operator_not, BooleanOpertors.operator_anot}
-        operator_precedence = {BooleanOpertors.operator_not: 2, BooleanOpertors.operator_and: 1, BooleanOpertors.operator_anot: 1, BooleanOpertors.operator_or: 0}
 
         for token in queue:
             if token not in operators:
-                stack.append(Operand(self.lutil, token=token))
+                stack.append(Token(self.lutil, token=token))
                 continue
 
             # means there are two operands to be considered, except not which is unary
@@ -215,8 +228,9 @@ class Search:
         results = stack.pop().get_results()
         return " ".join(results)
 
+    # logic for the not clause execution
     def not_eval(self, operand):
-        all_postings_list_operand = Operand(self.lutil, all_files_postings_list=True)
+        all_postings_list_operand = Token(self.lutil, all_files_postings_list=True)
         a = operand.next()
         b = all_postings_list_operand.next()
 
@@ -241,8 +255,9 @@ class Search:
             result.append(b)
             b = all_postings_list_operand.next()
 
-        return Operand(self.lutil, result=result)
+        return Token(self.lutil, result=result)
 
+    # logic for the and-not combined clause execution
     def anot_eval(self, right_operand, left_operand):
         a, b = left_operand.next(), right_operand.next()
 
@@ -265,8 +280,9 @@ class Search:
             result.append(a)
             a = left_operand.next()
 
-        return Operand(self.lutil, result=result)
+        return Token(self.lutil, result=result)
 
+    # logic for the and clause execution
     def and_eval(self, left_operand, right_operand):
         if left_operand.get_frequency() > right_operand.get_frequency():
             return self.and_eval(right_operand, left_operand)
@@ -283,7 +299,7 @@ class Search:
                     (a_skip, a_skip_interval) = left_operand.skip_pointer()
                     if a_skip != Characters.EMPTY:
                         if int(a_skip) <= int(b):
-                            left_operand.next_fp_skip(a_skip_interval)
+                            left_operand.next_pointer_skip(a_skip_interval)
                             left_operand.next_index_skip(a_skip_interval)
 
                     a = a_skip if a_skip != Characters.EMPTY and int(a_skip) <= int(b) else left_operand.next()
@@ -292,25 +308,26 @@ class Search:
                 if int(a) >= int(b):
                     (b_skip, b_skip_interval) = right_operand.skip_pointer()
                     if b_skip != Characters.EMPTY and int(b_skip) <= int(a):
-                        right_operand.next_fp_skip(b_skip_interval)
+                        right_operand.next_pointer_skip(b_skip_interval)
                         right_operand.next_index_skip(b_skip_interval)
 
                     b = b_skip if b_skip != Characters.EMPTY and int(b_skip) <= int(a) else right_operand.next()
 
-            return Operand(self.lutil, result=result)
+            return Token(self.lutil, result=result)
 
+    # logic for the or clause execution
     def or_eval(self, left_operand, right_operand):
         result = []
 
         if left_operand.contains_results:
             if len(left_operand.final_results) == 0:
                 result = right_operand.get_results()
-                return Operand(self.lutil, result=result)
+                return Token(self.lutil, result=result)
 
         if right_operand.contains_results:
             if len(right_operand.final_results) == 0:
                 result = left_operand.get_results()
-                return Operand(self.lutil, result=result)
+                return Token(self.lutil, result=result)
 
         a, b = left_operand.next(), right_operand.next()
         while a != Characters.EMPTY and b != Characters.EMPTY:
@@ -337,7 +354,7 @@ class Search:
             result.append(b)
             b = right_operand.next()
 
-        return Operand(self.lutil, result=result)
+        return Token(self.lutil, result=result)
 
 
 def usage():
@@ -353,11 +370,9 @@ def run_search(dict_file, postings_file, queries_file, results_file):
     answers = list()
 
     with open(queries_file, "r") as file:
-        for i, query in enumerate(file):
+        for _i, query in enumerate(file):
             query = query.strip()
-            print(i)
             result = search.process_query(query)
-            # result = " ".join(token for token in result.strip().split(" ") if not token.startswith(Characters.SKIP_POINTER))
             answers.append(result)
 
     with open(results_file, "w") as file:
