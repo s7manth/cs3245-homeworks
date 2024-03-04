@@ -1,6 +1,16 @@
 import os
 import pickle
 
+class BooleanOpertors:
+   operator_and = "AND"
+   operator_or = "OR"
+   operator_not = "NOT"
+   operator_anot = "ANOT"
+
+class Parentheses:
+    left = "("
+    right = ")"
+
 class LoadingUtil:
     def __init__(self, output_dictionary_path, output_postings_path):
         self.output_postings_path = output_postings_path
@@ -22,7 +32,8 @@ class LoadingUtil:
         assert len(self.dictionary) > 0
         postings_list = str()
         with open(self.output_postings_path, "rb") as postings_file:
-            if token not in self.dictionary: return postings_list
+            if token not in self.dictionary:
+                return postings_list
             postings_file.seek(self.dictionary[token])
             postings_list = pickle.load(postings_file)
 
@@ -36,50 +47,79 @@ class LoadingUtil:
 
         return self.file_ids, self.dictionary, all_file_postings_list
 
+
 class ShuntingYard:
     @staticmethod
     def parse(query):
-        operators = {"AND", "OR", "NOT", "ANOT"}
-        operator_precedence = {"NOT":2,"AND":1,"ANOT":1,"OR": 0}
-
-        def top_operator_precedence(stack):
-            if len(stack) == 0:
-                return 0
-            return operator_precedence[stack[-1]]
+        operators = {
+            BooleanOpertors.operator_and,
+            BooleanOpertors.operator_or,
+            BooleanOpertors.operator_not,
+            BooleanOpertors.operator_anot
+        }
+        operator_precedence = {
+            BooleanOpertors.operator_not: 2,
+            BooleanOpertors.operator_and: 1,
+            BooleanOpertors.operator_anot: 1,
+            BooleanOpertors.operator_or: 0
+        }
 
         tokens = query.split(" ")
-        query_tokens = []
+        parsed_entities = []
+
         for t in tokens:
-            current = t
-            while(current[0] == "("):
-                query_tokens.append("(")
-                current = current[1:]
-            end_parenthese_cnt = 0
-            while(current[-1] == ")"):
-                end_parenthese_cnt += 1
-                current = current[:-1]
-            query_tokens.append(current)
-            for _ in range(end_parenthese_cnt):
-                query_tokens.append(")")
+            t_copy = t
+            while t_copy[0] == Parentheses.left:
+                parsed_entities.append(Parentheses.left)
+                t_copy = t_copy[1:]
+
+            right_parentheses_count = 0
+            while t_copy[-1] == Parentheses.right:
+                right_parentheses_count += 1
+                t_copy = t_copy[:-1]
+
+            parsed_entities.append(t_copy)
+            _ = [parsed_entities.append(Parentheses.right) for _ in range(right_parentheses_count)]
+
         output_queue = []
-        operator_stack = []
-        while query_tokens:
-            current = query_tokens.pop(0)
-            if query_tokens and current == "AND" and query_tokens[0] == "NOT":
-                current = "ANOT"
-                query_tokens.pop(0)
-            if current not in operators and current != "(" and current != ")":
+        operator_s = []
+
+        while parsed_entities:
+            current = parsed_entities.pop(0)
+            if parsed_entities and current == BooleanOpertors.operator_and and parsed_entities[0] == BooleanOpertors.operator_not:
+                current = BooleanOpertors.operator_anot
+                parsed_entities.pop(0)
+
+            if current not in operators and current != Parentheses.left and current != Parentheses.right:
                 output_queue.append(current)
+
             if current in operators:
-                while len(operator_stack) != 0 and operator_stack[len(operator_stack)-1] != "(" and ((top_operator_precedence(operator_stack) > operator_precedence[current]) or (top_operator_precedence(operator_stack) == operator_precedence[current] and current != "NOT")):
-                    output_queue.append(operator_stack.pop())
-                operator_stack.append(current)
-            if current == "(":
-                operator_stack.append(current)
-            if current == ")":
-                while operator_stack[len(operator_stack) -1] != "(":
-                    output_queue.append(operator_stack.pop())
-                operator_stack.pop()
-        while operator_stack:
-            output_queue.append(operator_stack.pop())
+                while (
+                    len(operator_s) != 0
+                    and operator_s[len(operator_s) - 1] != Parentheses.left
+                    and (
+                        (
+                            0 if len(operator_s) == 0 else operator_precedence[operator_s[-1]]
+                            > operator_precedence[current]
+                        )
+                        or (
+                            0 if len(operator_s) == 0 else operator_precedence[operator_s[-1]]
+                            == operator_precedence[current]
+                            and current != BooleanOpertors.operator_not
+                        )
+                    )
+                ):
+                    output_queue.append(operator_s.pop())
+                operator_s.append(current)
+
+            if current == Parentheses.left:
+                operator_s.append(current)
+
+            if current == Parentheses.right:
+                while operator_s[len(operator_s) - 1] != Parentheses.left:
+                    output_queue.append(operator_s.pop())
+                operator_s.pop()
+
+        while operator_s:
+            output_queue.append(operator_s.pop())
         return output_queue
