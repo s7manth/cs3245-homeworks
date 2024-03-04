@@ -61,7 +61,7 @@ class Index:
                         for st in sent_tokenize(line)
                         for word in word_tokenize(st)]
 
-                tokens = list(filter(stopword_filter, tokens))
+                # tokens = list(filter(stopword_filter, tokens))
                 tokens = list(filter(punctuation_filer, tokens))
 
                 for token in tokens:
@@ -113,9 +113,12 @@ class Index:
                 self.dictionary[token] = position
                 pickle.dump(ps, postings_file)
 
+        all_file_postings_list = self.serialize_with_skip_pointers(sorted(list(self.file_ids), key=lambda x: int(x)))
+
         with open(self.output_dictionary_path, "wb") as dictionary_file:
             pickle.dump(self.file_ids, dictionary_file)
             pickle.dump(self.dictionary, dictionary_file)
+            pickle.dump(all_file_postings_list, dictionary_file)
 
 def build_index(in_dir, out_dict, out_postings):
     """
@@ -129,10 +132,16 @@ def build_index(in_dir, out_dict, out_postings):
     index.save()
 
     lutil = LoadingUtil(out_dict, out_postings)
-    file_ids, dictionary = lutil.load_dictionary()
-    pl = lutil.load_postings_list("inch")
+    file_ids, dictionary, all_file_postings_list = lutil.load_dictionary()
+    pl = lutil.load_postings_list(PorterStemmer().stem("employee"))
+    al = lutil.load_postings_list(PorterStemmer().stem("company"))
+    rt = lutil.load_postings_list(PorterStemmer().stem("profit"))
 
     print(pl)
+    print("-------------")
+    print(al)
+    print("-------------")
+    print(rt)
 
 
 def usage():
