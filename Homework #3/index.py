@@ -5,7 +5,7 @@ import sys
 import getopt
 
 def usage():
-    print(f"usage: {sys.argv[0]} -i directory-of-documents -d dictionary-file -p postings-file")
+    print("usage: " + sys.argv[0] + " -i directory-of-documents -d dictionary-file -p postings-file")
 
 def build_index(in_dir, out_dict, out_postings):
     """
