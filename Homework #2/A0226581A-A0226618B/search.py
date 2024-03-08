@@ -25,25 +25,16 @@ class Token:
         _, _, self.file_ids = lutil.load_dictionary()
 
         # token (stemmed) associated with the postings list
-        self.token = token
-        self.starting_fp = 0
+        self.token = PorterStemmer().stem(token.lower())
+        self.start_pointer = 0
         # postings list in flattened string form from the pickle file
-        self.postings_string = (
-            self.file_ids if all_files_postings_list else lutil.load_postings_list(token)
-        )
+        self.postings_string = ""
 
         # number of unique documents the token appears in
-        self.frequency = len(
-            list(
-                filter(
-                    lambda x: not x.startswith(Characters.SKIP_POINTER),
-                    self.postings_string.strip().split(" "),
-                )
-            )
-        )
+        self.frequency = 0
 
         # variables that are related to character traversal on postings list string
-        self.length = len(self.postings_string)
+        self.length = 0
         self.next_pointer = 0
         self.pointer_alive = 0
 
@@ -51,20 +42,46 @@ class Token:
         self.index_of_posting = 0
 
         if all_files_postings_list:
-            self.next_pointer = self.starting_fp
+            self.next_pointer = self.start_pointer
             self.pointer_alive = self.next_pointer
+            self.postings_string = (
+                self.file_ids if all_files_postings_list else lutil.load_postings_list(self.token)
+            )
+            self.frequency = len(
+                list(
+                    filter(
+                        lambda x: not x.startswith(Characters.SKIP_POINTER),
+                        self.postings_string.strip().split(" "),
+                    )
+                )
+            )
+            self.length = len(self.postings_string)
             return
 
         if self.token != Characters.EMPTY:
             stemmer = PorterStemmer()
             self.token = stemmer.stem(token.lower())
 
+            self.postings_string = (
+                self.file_ids if all_files_postings_list else lutil.load_postings_list(self.token)
+            )
+            self.frequency = len(
+                list(
+                    filter(
+                        lambda x: not x.startswith(Characters.SKIP_POINTER),
+                        self.postings_string.strip().split(" "),
+                    )
+                )
+            )
+            self.length = len(self.postings_string)
+
             if len(self.postings_string.strip()) == 0:
                 self.contains_results = True
+                return
             else:
-                self.next_pointer = self.starting_fp
+                self.next_pointer = self.start_pointer
                 self.pointer_alive = self.next_pointer
-            return
+                return
 
         self.contains_results = True
         self.final_results = result
@@ -152,7 +169,7 @@ class Token:
 
             return value
 
-        if self.next_pointer < self.starting_fp + self.length:
+        if self.next_pointer < self.start_pointer + self.length:
             accumulated = Characters.EMPTY
             self.pointer_alive = self.next_pointer
 

@@ -149,6 +149,16 @@ def build_index(in_dir, out_dict, out_postings):
     index.process_documents(in_dir)
     index.save() #the three lines are to index the documents and store them
 
+    lutil = LoadingUtil(out_dict, out_postings)
+    (
+        file_ids,
+        dictionary,
+        all_file_postings_list,
+    ) = lutil.load_dictionary()
+
+    print(lutil.load_postings_list(PorterStemmer().stem("DR".lower())))
+    print("-" * 50)
+    print(lutil.load_postings_list(PorterStemmer().stem("american".lower())))
 
 def usage():
     print(
