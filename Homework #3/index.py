@@ -12,16 +12,16 @@ from nltk.stem.porter import PorterStemmer
 from nltk.corpus import stopwords
 from nltk import sent_tokenize, word_tokenize
 
-# from utils import LoadingUtil
+from utils import LoadingUtil
 
-#index class to represent the postings and the indexing of the terms
+# index class to represent the postings and the indexing of the terms
 class Index:
     def __init__(
         self,
         output_dictionary_path="dictionary.txt",
         output_postings_path="postings.txt",
     ):
-        #path of the output dictionary and postings files
+        # path of the output dictionary and postings files
         self.output_dictionary_path: str = output_dictionary_path
         self.output_postings_path: str = output_postings_path
 
@@ -29,7 +29,7 @@ class Index:
         self.vocabulary: set[str] = set()  # all individual, unique tokens
         self.postings: dict[str, dict[str, int]] = {}  # token: {all docs that it appears in}
         self.document_frequency : dict[str, int] = {}
-        self.document_length : dict[int, int] = {}
+        self.document_length : dict[str, int] = {}
 
         # all file ids
         self.file_ids: list[str] = list()
@@ -49,7 +49,7 @@ class Index:
         if not os.path.isdir(input_directory_path):
             raise RuntimeError("ERROR: specified input directory is not a directory")
 
-    #function to preprocess the documents
+    # function to preprocess the documents
     def process_documents(self, input_directory_path):
         is_file = lambda file: os.path.isfile(os.path.join(input_directory_path, file))
         self.files = {
@@ -57,21 +57,21 @@ class Index:
             for file in filter(is_file, os.listdir(input_directory_path))
         }
 
-        stemmer = PorterStemmer() #stemmer initialisation
-        sws = set(stopwords.words("english")) #stopwords
-        punct = set(string.punctuation) #punctuations
+        stemmer = PorterStemmer() # stemmer initialisation
+        sws = set(stopwords.words("english")) # stopwords
+        punct = set(string.punctuation) # punctuations
 
         for file_id, file_path in self.files.items():
             self.file_ids.append(file_id)
             with open(file_path, "r+") as file:
-                stopword_filter = lambda word: word not in sws #stopword removal
-                punctuation_filer = lambda word: word not in punct #punctuation removal
+                stopword_filter = lambda word: word not in sws # stopword removal
+                punctuation_filer = lambda word: word not in punct # punctuation removal
 
                 tokens = [
-                    stemmer.stem(word).lower() #stemming
+                    stemmer.stem(word).lower() # stemming
                     for line in file
-                    for st in sent_tokenize(line) #document to lines tokenisation
-                    for word in word_tokenize(st) #lines to words tokenisations
+                    for st in sent_tokenize(line) # document to lines tokenisation
+                    for word in word_tokenize(st) # lines to words tokenisations
                 ]
 
                 # tokens = list(filter(stopword_filter, tokens))
@@ -85,70 +85,30 @@ class Index:
                             self.postings[token][file_id] += 1
                         else:
                             self.postings[token][file_id] = 1
-                        # self.postings[token].add(file_id) #adding file to a pre existing token
+                        # self.postings[token].add(file_id) # adding file to a pre existing token
                         self.document_frequency[token] = len(self.postings[token])
                     else:
-                        # self.postings[token] = {file_id} #adding file to a newtoken
-                        self.vocabulary.add(token) #adding token to the vocabulary
+                        # self.postings[token] = {file_id} # adding file to a newtoken
+                        self.vocabulary.add(token) # adding token to the vocabulary
                         self.document_frequency[token] = 1
                         self.postings[token][file_id] = 1
 
-
-
         print("index built!")
 
-    #function to make initialise skip pointers for the posting lists
-    def serialize_with_skip_pointers(self, postings_list):
-        length = len(postings_list)
-        interval = int(math.sqrt(length)) #initialising the length of the interval for skip pointer
-
-        counter = 0
-        result = str()
-
-        while counter < length: #to ensure skipping within boundaries
-            result += f" {postings_list[counter]}"
-
-            if counter % interval != 0 or interval <= 1:
-                counter += 1
-                continue
-
-            boundary = counter + interval
-            if boundary < length:
-                documents_to_skip = postings_list[counter + 1 : boundary] #actual skipping
-                skip_s = " ".join(str(s) for s in documents_to_skip) #string representation of skipping
-
-                result += f" +{len(skip_s) + 2} {skip_s}"
-                counter += len(documents_to_skip) + 1
-                continue
-
-            counter += 1
-
-        return result
-
-    #function to save the postigs list with skip pointers
+    # function to save the postings list with skip pointers
     def save(self):
-        self.postings_serialized = {
-            token: self.serialize_with_skip_pointers(
-                sorted(list(self.postings[token]), key=lambda x: int(x))
-            )
-            for token in self.vocabulary
-        }
-
         with open(self.output_postings_path, "wb") as postings_file:
             position = 0
             for token, ps in self.postings_serialized.items():
                 position = postings_file.tell()
-                self.dictionary[token] = position #store dictionary
+                self.dictionary[token] = position # store dictionary
                 pickle.dump(ps, postings_file)
-
-        all_file_postings_list = self.serialize_with_skip_pointers(
-            sorted(list(self.file_ids), key=lambda x: int(x)) #sort the file ids in posting list
-        )
 
         with open(self.output_dictionary_path, "wb") as dictionary_file:
             pickle.dump(self.file_ids, dictionary_file)
             pickle.dump(self.dictionary, dictionary_file)
-            pickle.dump(all_file_postings_list, dictionary_file) #actual storing of all the files
+            pickle.dump(self.document_frequency, dictionary_file)
+            pickle.dump(self.document_length, dictionary_file)
 
 
 def build_index(in_dir, out_dict, out_postings):
@@ -167,6 +127,8 @@ def build_index(in_dir, out_dict, out_postings):
         file_ids,
         dictionary,
         all_file_postings_list,
+        document_frequency,
+        document_length
     ) = lutil.load_dictionary()
 
     print(lutil.load_postings_list(PorterStemmer().stem("DR".lower())))
