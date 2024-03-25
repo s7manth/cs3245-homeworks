@@ -4,6 +4,25 @@ import nltk
 import sys
 import getopt
 
+from utils import LoadingUtil
+
+class Search:
+    def __init__(self, dict_file, postings_file):
+        self.dict_file = dict_file
+        self.postings_file = postings_file
+
+        self.lutil = LoadingUtil(dict_file, postings_file)
+        (
+            self.file_ids,
+            self.dictionary,
+            self.all_file_postings_list,
+            self.document_frequency,
+            self.document_length
+        ) = self.lutil.load_dictionary()
+
+    def process_query(self, query):
+        return ""
+
 def usage():
     print("usage: " + sys.argv[0] + " -d dictionary-file -p postings-file -q file-of-queries -o output-file-of-results")
 
@@ -13,8 +32,18 @@ def run_search(dict_file, postings_file, queries_file, results_file):
     perform searching on the given queries file and output the results to a file
     """
     print('running search on the queries...')
-    # This is an empty method
-    # Pls implement your code in below
+
+    search = Search(dict_file, postings_file)
+    answers = list()
+
+    with open(queries_file, "r") as file:
+        for _i, query in enumerate(file):
+            query = query.strip()
+            result = search.process_query(query)
+            answers.append(result)
+
+    with open(results_file, "w") as file:
+        _ = [file.write(f"{a}\r\n") for a in answers]
 
 dictionary_file = postings_file = file_of_queries = output_file_of_results = None
 
