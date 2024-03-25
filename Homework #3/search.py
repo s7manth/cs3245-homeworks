@@ -20,6 +20,12 @@ class Search:
             self.document_length
         ) = self.lutil.load_dictionary()
 
+    def score_document(self):
+        pass
+
+    def score_query(self):
+        pass
+
     def process_query(self, query):
         return ""
 
