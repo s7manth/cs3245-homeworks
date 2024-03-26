@@ -14,6 +14,8 @@ from nltk import sent_tokenize, word_tokenize
 
 from utils import LoadingUtil
 
+
+#{token : {}}
 # index class to represent the postings and the indexing of the terms
 class Index:
     def __init__(

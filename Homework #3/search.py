@@ -3,6 +3,7 @@ import re
 import nltk
 import sys
 import getopt
+import math
 
 from utils import LoadingUtil
 
@@ -10,6 +11,8 @@ class Search:
     def __init__(self, dict_file, postings_file):
         self.dict_file = dict_file
         self.postings_file = postings_file
+        self.tf_score : dict[str, dict[str, float]] = {}
+        self.normalised_tf : dict[str, dict[str, float]] = {}
 
         self.lutil = LoadingUtil(dict_file, postings_file)
         (
@@ -20,8 +23,20 @@ class Search:
             self.document_length
         ) = self.lutil.load_dictionary()
 
-    def score_document(self):
-        pass
+    def score_document(self, token):
+        norm_den = 0
+
+        if token not in self.all_file_postings_list:
+            return None
+        if token in self.tf_score:
+            return self.tf_score[token]
+        for doc in self.all_file_postings_list[token]:
+            self.tf_score[token][doc] = 1 + math.log(self.all_file_postings_list[token][doc], 10)
+            norm_den += pow(1 + math.log(self.all_file_postings_list[token][doc], 10),2)
+        for doc in self.all_file_postings_list[token]:
+            self.normalised_tf[token][doc] = self.tf_score[token][doc]/pow(norm_den, 0.5)
+        return self.normalised_tf
+
 
     def score_query(self):
         pass
