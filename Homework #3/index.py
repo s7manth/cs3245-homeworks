@@ -7,15 +7,15 @@ import pickle
 import string
 import sys
 
-from dataclasses import dataclass
+from collections import defaultdict
 from nltk.stem.porter import PorterStemmer
 from nltk.corpus import stopwords
 from nltk import sent_tokenize, word_tokenize
+from pprint import pprint as print
 
 from utils import LoadingUtil
 
 
-#{token : {}}
 # index class to represent the postings and the indexing of the terms
 class Index:
     def __init__(
@@ -29,18 +29,16 @@ class Index:
 
         self.files: dict[str, str] = dict()  # file_name: file_path
         self.vocabulary: set[str] = set()  # all individual, unique tokens
-        self.postings: dict[str, dict[str, int]] = {}  # token: {all docs that it appears in}
-        self.document_frequency : dict[str, int] = {}
-        self.document_length : dict[str, int] = {}
-
-        # all file ids
-        self.file_ids: list[str] = list()
+        self.postings: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))  # { token: { document: frequency, ... }... }
+        self.document_frequency: dict[str, int] = defaultdict(int)  # token: how_many_docs_is_the_token_in
+        self.document_length: dict[str, int] = defaultdict(int)  # document_id: number_of_tokens
+        self.file_ids: list[str] = list() # all file ids
 
         # save postings in the form of { token: string form of the postings list }
-        self.postings_serialized: dict[str, str] = {}
+        # self.postings_serialized: dict[str, str] = {}
 
         # save dictionary in the form of { token: offset of the postings list in disk }
-        self.dictionary: dict[str, int] = {}
+        self.dictionary: dict[str, int] = defaultdict(int)
 
     def sanity_check(self, input_directory_path):
         # sanity check if the input directory path exists
@@ -59,41 +57,35 @@ class Index:
             for file in filter(is_file, os.listdir(input_directory_path))
         }
 
-        stemmer = PorterStemmer() # stemmer initialisation
-        sws = set(stopwords.words("english")) # stopwords
-        punct = set(string.punctuation) # punctuations
+        stemmer = PorterStemmer()  # stemmer initialisation
+        sws = set(stopwords.words("english"))  # stopwords
+        punct = set(string.punctuation)  # punctuations
 
-        for file_id, file_path in self.files.items():
+        for file_id, file_path in list(self.files.items()):
             self.file_ids.append(file_id)
             with open(file_path, "r+") as file:
-                stopword_filter = lambda word: word not in sws # stopword removal
+                stopword_filter = lambda word: word not in sws  # stopword removal
                 punctuation_filer = lambda word: word not in punct # punctuation removal
 
                 tokens = [
-                    stemmer.stem(word).lower() # stemming
+                    stemmer.stem(word).lower()  # stemming
                     for line in file
-                    for st in sent_tokenize(line) # document to lines tokenisation
-                    for word in word_tokenize(st) # lines to words tokenisations
+                    for st in sent_tokenize(line)  # document to lines tokenisation
+                    for word in word_tokenize(st)  # lines to words tokenisations
                 ]
 
                 # tokens = list(filter(stopword_filter, tokens))
                 tokens = list(filter(punctuation_filer, tokens))
-
                 self.document_length[file_id] = len(tokens)
 
                 for token in tokens:
-                    if token in self.vocabulary:
-                        if file_id in self.postings[token]:
-                            self.postings[token][file_id] += 1
-                        else:
-                            self.postings[token][file_id] = 1
-                        # self.postings[token].add(file_id) # adding file to a pre existing token
-                        self.document_frequency[token] = len(self.postings[token])
-                    else:
-                        # self.postings[token] = {file_id} # adding file to a newtoken
-                        self.vocabulary.add(token) # adding token to the vocabulary
-                        self.document_frequency[token] = 1
-                        self.postings[token][file_id] = 1
+                    if not token in self.vocabulary:
+                        self.vocabulary.add(token)
+
+                    if not file_id in self.postings[token]:
+                        self.document_frequency[token] += 1
+
+                    self.postings[token][file_id] += 1
 
         print("index built!")
 
@@ -101,10 +93,10 @@ class Index:
     def save(self):
         with open(self.output_postings_path, "wb") as postings_file:
             position = 0
-            for token, ps in self.postings_serialized.items():
+            for token, t_dict in self.postings.items():
                 position = postings_file.tell()
                 self.dictionary[token] = position # store dictionary
-                pickle.dump(ps, postings_file)
+                pickle.dump(t_dict, postings_file)
 
         with open(self.output_dictionary_path, "wb") as dictionary_file:
             pickle.dump(self.file_ids, dictionary_file)
@@ -122,25 +114,23 @@ def build_index(in_dir, out_dict, out_postings):
 
     index = Index(out_dict, out_postings)
     index.process_documents(in_dir)
-    index.save() #the three lines are to index the documents and store them
+    index.save()  # the three lines are to index the documents and store them
 
     lutil = LoadingUtil(out_dict, out_postings)
     (
         file_ids,
         dictionary,
-        all_file_postings_list,
         document_frequency,
-        document_length
+        document_length,
     ) = lutil.load_dictionary()
 
     print(lutil.load_postings_list(PorterStemmer().stem("DR".lower())))
     print("-" * 50)
     print(lutil.load_postings_list(PorterStemmer().stem("american".lower())))
 
+
 def usage():
-    print(
-        f"usage: {sys.argv[0]} -i directory-of-documents -d dictionary-file -p postings-file"
-    )
+    print(f"usage: {sys.argv[0]} -i directory-of-documents -d dictionary-file -p postings-file")
 
 
 input_directory = output_file_dictionary = output_file_postings = None
