@@ -22,6 +22,7 @@ class Search:
         self.tf_score: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(int))
         self.normalised_tf: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(int))
         self.q_score: dict[str, dict[str, float]] = {}
+        self.doc_vectors = dict[str, dict[str, int]] = {}
 
         self.lutil = LoadingUtil(dict_file, postings_file)
         (
@@ -42,25 +43,36 @@ class Search:
     #     self.score_document()
 
     # ltc
-    def score_document(self, token):
-        if token not in self.dictionary:
-            return None
+    def score_document(self):
 
-        if token in self.tf_score:
-            return self.normalised_tf[token]
+        for doc in self.file_ids:
+            magnitude = 0
+            for token in self.dictionary:
+                if doc in self.postings_file[token]:
+                    self.doc_vectors[doc][token] = 1 + math.log(self.postings_file[token], 10)
+                else:
+                    self.doc_vectors[token] = 0
+                magnitude += pow(self.doc_vectors[doc][token],1)
+            for token in self.doc_vectors[doc]:
+                self.doc_vectors[doc][token] = self.doc_vectors/pow(magnitude, 0.5)
+        
+        # for token in self.dictionary:
 
-        document_data = self.lutil.load_document_data(token)
+        #     if token not in self.dictionary:
+        #         return None
 
-        magnitude = 0
-        for doc in document_data:
-            self.tf_score[token][doc] = 1 + math.log(document_data[doc], 10)
-            magnitude += pow(1 + math.log(document_data[doc], 10), 2)
+        #     document_data = self.lutil.load_document_data(token)
 
-        magnitude = pow(magnitude, 0.5)
-        for doc in document_data:
-            self.normalised_tf[token][doc] = self.tf_score[token][doc] / magnitude
+        #     magnitude = 0
+        #     for doc in document_data:
+        #         self.tf_score[token][doc] = 1 + math.log(document_data[doc], 10)
+        #         magnitude += pow(1 + math.log(document_data[doc], 10), 2)
 
-        return self.normalised_tf[token]
+        # magnitude = pow(magnitude, 0.5)
+        # for doc in document_data:
+        #     self.normalised_tf[token][doc] = self.tf_score[token][doc] / magnitude
+
+        # return self.normalised_tf[token]
 
     # # lnc
     # def score_query(self, query_tokens):
@@ -68,6 +80,23 @@ class Search:
     #         pass
 
     #     return 0, 0
+                
+    def cos_sim(vector_1, vector_2):
+        if len(vector_1) != len(vector_2):
+            return -1
+        count = len(vector_1) -1
+        dot_prod = 0
+        magnitude_1 = 0
+        magnitude_2 = 0
+        while count >= 0:
+            dot_prod += vector_1[count] * vector_2[count]
+            magnitude_1 += pow(vector_1[count], 2)
+            magnitude_2 += pow(vector_2[count], 2)
+            count -= 1
+        magnitude_1 = pow(magnitude_1, 0.5)
+        magnitude_2 = pow(magnitude_2, 0.5)
+
+        return dot_prod/(magnitude_1*magnitude_2)
 
     def process_query(self, query):
         # tokenize query
