@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 import re
 import getopt
-import itertools
 import math
 import string
 import sys
@@ -61,17 +60,15 @@ class Search:
 
         # tokens = list(filter(stopword_filter, tokens))
         tokens = set(filter(self.punctuation_filer, tokens))
-        print(f"INFO: tokens: {tokens}")
 
         for token in tokens:
             if token in self.dictionary:
                 self.tf_score_query[query][token] += 1
 
         for token in tokens:
-            idf = self.idf_score_query[token]
+            idf = self.idf_score_query[token] if token in self.idf_score_query else 0
             tf = self.tf_score_query[query][token]
             tf_idf = tf * idf
-            print(f"INFO: token: {token} tf_idf: {tf_idf}")
             self.tf_score_query[query][token] = tf_idf
 
         scores: dict[str, float] = defaultdict(float)
@@ -81,15 +78,9 @@ class Search:
                 tf_doc = 1 + math.log(ps[file], 10)
 
                 scores[file] += self.tf_score_query[query][token] * tf_doc
-                if file == "5800":
-                    print(f"INFO: file: {file} {tf_doc}")
-                    print(scores[file])
 
         for file in scores:
             scores[file] /= self.document_length[file]
-            if file == "5800":
-                print(f"INFO: score (after div) for {file}: {scores[file]}")
-                print(f"INFO: doc length {self.document_length[file]}")
 
         tls = scores.items()
         scores_sorted = list(sorted(tls, key=lambda x: -x[1]))
@@ -112,9 +103,8 @@ def run_search(dict_file, postings_file, queries_file, results_file):
     answers = list()
 
     with open(queries_file, "r") as file:
-        for _i, query in itertools.islice(enumerate(file), 1):
+        for _i, query in enumerate(file):
             query = query.strip()
-            print(f"INFO: processing query: {query}")
             result = search.process_query(query)
             answers.append(" ".join(result))
 
