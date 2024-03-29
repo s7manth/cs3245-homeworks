@@ -44,32 +44,12 @@ class Search:
         self.__post_init__()
 
     def __post_init__(self):
-        # self.score_document()
         self.calc_idf()
-
-    # lnc
-    def score_document(self):
-        print("INFO: score_document called!")
-
-        for doc in self.file_ids:
-            # magnitude = 0
-            for token in self.dictionary:
-                print(f"INFO: processing {token} in scoring document {doc}")
-                ps = self.lutil.load_document_data(token)
-                if doc in ps:
-                    self.doc_vectors[doc][token] = 1 + math.log(ps[doc], 10)
-                else:
-                    self.doc_vectors[doc][token] = 0
-
-                # magnitude += pow(self.doc_vectors[doc][token], 2)
-
-            # for token in self.doc_vectors[doc]:
-            #     self.doc_vectors[doc][token] = self.doc_vectors[doc][token] / pow(magnitude, 0.5)
 
     def calc_idf(self):
         for token in self.dictionary:
             df = self.document_frequency[token]
-            idf = max(math.log(len(self.file_ids) / df, 10), 0) if df != 0 else 0
+            idf = math.log(len(self.file_ids) / df, 10) if df != 0 else 0
             self.idf_score_query[token] = idf
 
     def process_query(self, query):
@@ -81,29 +61,35 @@ class Search:
 
         # tokens = list(filter(stopword_filter, tokens))
         tokens = set(filter(self.punctuation_filer, tokens))
+        print(f"INFO: tokens: {tokens}")
 
         for token in tokens:
             if token in self.dictionary:
                 self.tf_score_query[query][token] += 1
 
-        for token in self.tf_score_query[query]:
-            idf = 1 if not token in self.idf_score_query else self.idf_score_query[token]
+        for token in tokens:
+            idf = self.idf_score_query[token]
             tf = self.tf_score_query[query][token]
             tf_idf = tf * idf
+            print(f"INFO: token: {token} tf_idf: {tf_idf}")
             self.tf_score_query[query][token] = tf_idf
-            # magnitude += pow(tf_idf, 2)
-
-        # for token in self.tf_score_query[query]:
-        #     self.tf_score_query[query][token] /= pow(magnitude, 0.5)
 
         scores: dict[str, float] = defaultdict(float)
         for token in tokens:
             ps = self.lutil.load_document_data(token)
             for file in ps:
-                scores[file] += self.tf_score_query[query][token] * (1 + math.log(ps[file], 10))
+                tf_doc = 1 + math.log(ps[file], 10)
+
+                scores[file] += self.tf_score_query[query][token] * tf_doc
+                if file == "5800":
+                    print(f"INFO: file: {file} {tf_doc}")
+                    print(scores[file])
 
         for file in scores:
             scores[file] /= self.document_length[file]
+            if file == "5800":
+                print(f"INFO: score (after div) for {file}: {scores[file]}")
+                print(f"INFO: doc length {self.document_length[file]}")
 
         tls = scores.items()
         scores_sorted = list(sorted(tls, key=lambda x: -x[1]))
@@ -126,7 +112,7 @@ def run_search(dict_file, postings_file, queries_file, results_file):
     answers = list()
 
     with open(queries_file, "r") as file:
-        for _i, query in enumerate(file):
+        for _i, query in itertools.islice(enumerate(file), 1):
             query = query.strip()
             print(f"INFO: processing query: {query}")
             result = search.process_query(query)

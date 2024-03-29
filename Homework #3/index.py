@@ -118,9 +118,9 @@ def build_index(in_dir, out_dict, out_postings):
     print("indexing...")
 
     # the three lines are to index the documents and store the index
-    index = Index(out_dict, out_postings)
-    index.process_documents(in_dir)
-    index.save()
+    # index = Index(out_dict, out_postings)
+    # index.process_documents(in_dir)
+    # index.save()
 
     lutil = LoadingUtil(out_dict, out_postings)
     (
@@ -130,11 +130,9 @@ def build_index(in_dir, out_dict, out_postings):
         document_length,
     ) = lutil.load_dictionary()
 
-    print(document_frequency)
-
-    # print(lutil.load_document_data(PorterStemmer().stem("DR".lower())))
-    # print("-" * 50)
-    # print(lutil.load_document_data(PorterStemmer().stem("american".lower())))
+    print(lutil.load_document_data(PorterStemmer().stem("Chu".lower())))
+    print("-" * 50)
+    print(lutil.load_document_data(PorterStemmer().stem("housing,".lower())))
 
 
 def usage():
