@@ -106,7 +106,7 @@ class Search:
             scores[file] /= self.document_length[file]
 
         tls = scores.items()
-        scores_sorted = list(sorted(tls, key=lambda x: x[1]))
+        scores_sorted = list(sorted(tls, key=lambda x: -x[1]))
         scores_sorted = scores_sorted[:10]
         top_documents = list(map(lambda pair: pair[0], scores_sorted))
         return top_documents
