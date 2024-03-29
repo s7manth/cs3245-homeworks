@@ -29,13 +29,11 @@ class Index:
 
         self.files: dict[str, str] = dict()  # file_name: file_path
         self.vocabulary: set[str] = set()  # all individual, unique tokens
+
         self.postings: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))  # { token: { document: frequency, ... }... }
         self.document_frequency: dict[str, int] = defaultdict(int)  # token: how_many_docs_is_the_token_in
         self.document_length: dict[str, int] = defaultdict(int)  # document_id: number_of_tokens
         self.file_ids: list[str] = list() # all file ids
-
-        # save postings in the form of { token: string form of the postings list }
-        # self.postings_serialized: dict[str, str] = {}
 
         # save dictionary in the form of { token: offset of the postings list in disk }
         self.dictionary: dict[str, int] = defaultdict(int)
@@ -60,6 +58,13 @@ class Index:
         stemmer = PorterStemmer()  # stemmer initialisation
         sws = set(stopwords.words("english"))  # stopwords
         punct = set(string.punctuation)  # punctuations
+
+        # use numpy nd array to imitate the structure from tutorial
+        #         document1   document2   document3 ...
+        # token1  w_{t1, d1}
+        # token2
+        # token3
+        # ...
 
         for file_id, file_path in list(self.files.items()):
             self.file_ids.append(file_id)
@@ -112,9 +117,10 @@ def build_index(in_dir, out_dict, out_postings):
     """
     print("indexing...")
 
+    # the three lines are to index the documents and store the index
     index = Index(out_dict, out_postings)
     index.process_documents(in_dir)
-    index.save()  # the three lines are to index the documents and store them
+    index.save()
 
     lutil = LoadingUtil(out_dict, out_postings)
     (
@@ -124,9 +130,11 @@ def build_index(in_dir, out_dict, out_postings):
         document_length,
     ) = lutil.load_dictionary()
 
-    print(lutil.load_postings_list(PorterStemmer().stem("DR".lower())))
-    print("-" * 50)
-    print(lutil.load_postings_list(PorterStemmer().stem("american".lower())))
+    print(document_frequency)
+
+    # print(lutil.load_document_data(PorterStemmer().stem("DR".lower())))
+    # print("-" * 50)
+    # print(lutil.load_document_data(PorterStemmer().stem("american".lower())))
 
 
 def usage():

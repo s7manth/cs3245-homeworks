@@ -47,6 +47,6 @@ class LoadingUtil:
         return (
             self.file_ids,
             self.dictionary,
-            self.document_length,
             self.document_frequency,
+            self.document_length
         )
