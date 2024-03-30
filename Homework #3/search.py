@@ -19,11 +19,11 @@ class Search:
         self.dict_file = dict_file
         self.postings_file = postings_file
 
-        self.tf_score_query: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(int))
-        self.normalised_tf: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(int))
-        self.doc_vectors : dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(int))
-        self.tf_idf_query : dict[str, dict[str, float]] = {}
-        self.idf_score_query: dict[str, float] = {}
+        self.tf_score_query: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(int)) # maintain the tf-idf score for the query
+        # self.normalised_tf: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(int)) # maintain the normalised vector
+        # self.doc_vectors : dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(int)) 
+        # self.tf_idf_query : dict[str, dict[str, float]] = {}
+        self.idf_score_query: dict[str, float] = {} # calculate the idk for all the tokens
 
         self.lutil = LoadingUtil(dict_file, postings_file)
         (
@@ -45,6 +45,7 @@ class Search:
     def __post_init__(self):
         self.calc_idf()
 
+    # calculate and store the idf scores for all the terms in the document
     def calc_idf(self):
         for token in self.dictionary:
             df = self.document_frequency[token]
@@ -61,10 +62,12 @@ class Search:
         # tokens = list(filter(stopword_filter, tokens))
         tokens = set(filter(self.punctuation_filer, tokens))
 
+        # calculate the tf for the query terms
         for token in tokens:
             if token in self.dictionary:
                 self.tf_score_query[query][token] += 1
 
+        # calculate the tf-idf for the query terms by multiplying the tf scores with idf scores
         for token in tokens:
             idf = self.idf_score_query[token] if token in self.idf_score_query else 0
             tf = self.tf_score_query[query][token]
@@ -72,16 +75,20 @@ class Search:
             self.tf_score_query[query][token] = tf_idf
 
         scores: dict[str, float] = defaultdict(float)
+        # calculate the log tf score for the document
         for token in tokens:
             ps = self.lutil.load_document_data(token)
             for file in ps:
                 tf_doc = 1 + math.log(ps[file], 10)
 
+                # calculate the scores for the particular doc
                 scores[file] += self.tf_score_query[query][token] * tf_doc
 
+        # normalise the score by dividing by the doc length.
         for file in scores:
             scores[file] /= self.document_length[file]
 
+        # #return the top 10 docs for a particular query
         tls = scores.items()
         scores_sorted = list(sorted(tls, key=lambda x: -x[1]))
         scores_sorted = scores_sorted[:10]
@@ -92,6 +99,7 @@ def usage():
     print(f"usage: {sys.argv[0]} -d dictionary-file -p postings-file -q file-of-queries -o output-file-of-results")
 
 
+# method to facilitate the searching process, by reading in the queries and the postings and dictionary file
 def run_search(dict_file, postings_file, queries_file, results_file):
     """
     using the given dictionary file and postings file,

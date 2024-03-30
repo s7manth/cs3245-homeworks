@@ -85,12 +85,12 @@ class Index:
 
                 for token in tokens:
                     if not token in self.vocabulary:
-                        self.vocabulary.add(token)
+                        self.vocabulary.add(token) # add the token to a dictionary of all existing tokens
 
                     if not file_id in self.postings[token]:
-                        self.document_frequency[token] += 1
+                        self.document_frequency[token] += 1 # track the number of documents the token appears in
 
-                    self.postings[token][file_id] += 1
+                    self.postings[token][file_id] += 1 # increasse the tf for the particlar token, doc pair
 
         print("index built!")
 
