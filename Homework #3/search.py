@@ -20,9 +20,6 @@ class Search:
         self.postings_file = postings_file
 
         self.tf_score_query: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(int)) # maintain the tf-idf score for the query
-        # self.normalised_tf: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(int)) # maintain the normalised vector
-        # self.doc_vectors : dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(int)) 
-        # self.tf_idf_query : dict[str, dict[str, float]] = {}
         self.idf_score_query: dict[str, float] = {} # calculate the idk for all the tokens
 
         self.lutil = LoadingUtil(dict_file, postings_file)
@@ -52,6 +49,7 @@ class Search:
             idf = math.log(len(self.file_ids) / df, 10) if df != 0 else 0
             self.idf_score_query[token] = idf
 
+    # function to process each query that comes in
     def process_query(self, query):
         # tokenize query
         tokens = [
@@ -88,18 +86,20 @@ class Search:
         for file in scores:
             scores[file] /= self.document_length[file]
 
-        # #return the top 10 docs for a particular query
+        # return the top 10 documents for a particular query
+        # these documents are sorted in a reverse manner with respect to the score
         tls = scores.items()
         scores_sorted = list(sorted(tls, key=lambda x: -x[1]))
         scores_sorted = scores_sorted[:10]
-        top_documents = list(map(lambda pair: pair[0], scores_sorted))
-        return top_documents
+        result = " ".join(map(lambda pair: pair[0], scores_sorted))
+        return result
 
 def usage():
     print(f"usage: {sys.argv[0]} -d dictionary-file -p postings-file -q file-of-queries -o output-file-of-results")
 
 
-# method to facilitate the searching process, by reading in the queries and the postings and dictionary file
+# method to facilitate the searching process,
+# by reading in the queries and the postings and dictionary file
 def run_search(dict_file, postings_file, queries_file, results_file):
     """
     using the given dictionary file and postings file,
@@ -114,7 +114,7 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         for _i, query in enumerate(file):
             query = query.strip()
             result = search.process_query(query)
-            answers.append(" ".join(result))
+            answers.append(result)
 
     with open(results_file, "w") as file:
         _ = [file.write(f"{a}\r\n") for a in answers]
