@@ -36,6 +36,16 @@ The `calc_idf` function calculates the idf score for every token in the dictiona
 The `process_query` function takes in a query, preprocesses it just like the documents and then calculates the tf_idf for every query term. It then calculates the score for every document by using the Cosine Formula given in the book, which also uses normalisation using the length of the document.
 We then return the top documents (limit 10), for a particular query dependant on the score.
 
+Directory:
+```
+.
+├── README.txt
+├── dictionary.txt
+├── index.py
+├── postings.txt
+├── search.py
+└── utils.py
+```
 
 == Files included with this submission ==
 
