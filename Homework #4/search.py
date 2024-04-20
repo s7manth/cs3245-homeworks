@@ -6,6 +6,7 @@ import getopt
 from nltk.stem import *
 from time import perf_counter
 import math
+import heapq
 
 
 
@@ -33,16 +34,20 @@ def tokenize(text):
 
 #class Node for LinkedList
 class Node_Boolean_Retrieval:
-    def __init__(self, data, skip_idx):
+    def __init__(self, data):
+
+        data = data[1:-1]
+
+        data = data.split(",")
 
         #data of this node
-        self.data = int(data)
+        self.data = int(data[0])
 
         #pointer to next node
         self.next = None
 
         #idx of skip node to identify possible skip
-        self.skip_idx = skip_idx
+        self.skip_idx = data[2]
 
         #pointer to skip node
         self.skip = None
@@ -51,8 +56,9 @@ class Node_Boolean_Retrieval:
         return f"{self.data}"
     
     #directly add node to tail; only used when skip pointer not needed
-    def add_node(self, data, idx, skip_idx):
-        node = Node_Boolean_Retrieval(data, skip_idx)
+    def add_node(self, data):
+
+        node = Node_Boolean_Retrieval(data)
    
         self.next = node
 
@@ -64,13 +70,13 @@ class Node_Vector_Space:
 
         #pointer to next node
         self.next = None
-        #print(data)
-
+       
+        data = data[1:-1]
         data = data.split(",")
 
-        self.id = int(data[0][1:])
+        self.id = int(data[0])
 
-        self.tf = int(data[1][:-1])
+        self.tf = int(data[1])
 
     def __repr__(self):
         return f"{self.id}"
@@ -95,10 +101,10 @@ class LinkedList_Boolean_Retrieval:
 
         return resString.rstrip(" ")
 
-    def add_node(self, data, idx, skip_idx):
+    def add_node(self, data, idx):
 
         #create node to add
-        node = Node_Boolean_Retrieval(data, skip_idx)
+        node = Node_Boolean_Retrieval(data)
 
         #if linkedlist is empty add new node as head
         if self.head == None:
@@ -194,13 +200,11 @@ class BasicTerm:
         
         if self.word not in self.dictionary.keys():
             return LinkedList_Boolean_Retrieval()
-        
-        with open(postings_file) as file:
+
+        with open(postings_file, 'r') as file:
             file.seek(int(self.dictionary[self.word]["pointer"]))
 
             line = file.readline().replace(" \n", "").rstrip(" ").split(" : ")[1]
-
-            
 
         linkedList = LinkedList_Boolean_Retrieval()
 
@@ -208,12 +212,9 @@ class BasicTerm:
 
         for idx, v in enumerate(values, 0):
             
-            
-            
-            data = v.split("/")[0]
-            skip_idx = v.split("/")[1]
+            data = v
 
-            linkedList.add_node(data, idx, skip_idx)
+            linkedList.add_node(data, idx)
 
         return linkedList
 
@@ -413,7 +414,6 @@ class Term:
         
         self.left = self.evaluateQuery(self.queryL)
         self.right = self.evaluateQuery(self.queryR)
-
         
         left = self.left.head
         right = self.right.head
@@ -426,9 +426,9 @@ class Term:
             
             if left.data == right.data:
                 if resultTail == None:
-                    resultTail = result.add_node(left.data, idx, -1)
+                    resultTail = result.add_node(f"({left.data},-1,-1)", idx)
                 else:
-                    resultTail = resultTail.add_node(left.data, idx, -1)
+                    resultTail = resultTail.add_node(f"({left.data},-1,-1)")
                 idx = idx+1
                 right = right.next
                 left = left.next
@@ -447,7 +447,7 @@ class Term:
                 while left != None and left.data < right.data:
                     left = left.next
                 continue
-            
+
         return result
     
     def OR(self):
@@ -472,9 +472,9 @@ class Term:
             if left.data == right.data:
                 
                 if resultTail == None:
-                    resultTail = result.add_node(right.data, idx, -1)
+                    resultTail = result.add_node(f"({right.data},-1,-1)", idx)
                 else:
-                    resultTail = resultTail.add_node(right.data, idx, -1)
+                    resultTail = resultTail.add_node(f"({right.data},-1,-1)")
 
                 idx = idx+1
                 right = right.next
@@ -484,9 +484,9 @@ class Term:
             if left.data > right.data:
                 while right != None and right.data < left.data:
                     if resultTail == None:
-                        resultTail = result.add_node(right.data, idx, -1)
+                        resultTail = result.add_node(f"({right.data},-1,-1)", idx)
                     else:
-                        resultTail = resultTail.add_node(right.data, idx, -1)
+                        resultTail = resultTail.add_node(f"({right.data},-1,-1)")
                     
                     idx = idx+1
                     right = right.next
@@ -495,9 +495,9 @@ class Term:
             if left.data < right.data:
                 while left != None and left.data < right.data:
                     if resultTail == None:
-                        resultTail = result.add_node(left.data, idx, -1)
+                        resultTail = result.add_node(f"({left.data},-1,-1)", idx)
                     else:
-                        resultTail = resultTail.add_node(left.data, idx, -1)
+                        resultTail = resultTail.add_node(f"({left.data},-1,-1)")
                     idx = idx+1
                     left = left.next
                 continue
@@ -545,9 +545,9 @@ class Term:
             if left.data < right.data:
                 while left != None and left.data < right.data:
                     if resultTail == None:
-                        resultTail = result.add_node(left.data, idx, -1)
+                        resultTail = result.add_node(f"({left.data},-1,-1)", idx)
                     else:
-                        resultTail = resultTail.add_node(left.data, idx, -1)
+                        resultTail = resultTail.add_node(f"({left.data},-1,-1)")
                     
                     idx = idx+1
                     left = left.next
@@ -615,13 +615,15 @@ class Boolean_Retrieval_Searcher:
         # print(term.evaluate())
 
         out = open(results_file, 'w')
+
+        query = query.rstrip("\n")
         
         term = Term(query, "", "OR", dictionary, postings_file, full_list)
         out.write(f"{str(term.evaluate())}\n")
         
         end = perf_counter()
 
-        print(f"Total time {end-start} seconds")
+        print(f"Total time for boolean retrieval {end-start} seconds")
 
 
 
@@ -663,11 +665,10 @@ class Free_Text_Searcher:
         if word not in dictionary.keys():
             return LinkedList_Vector_Space()
 
-        with open(postings_file, 'rb') as file:
+        with open(postings_file, 'r') as file:
                 file.seek(int(dictionary[word]["pointer"]))
-                print(file.tell())
+                
                 line = file.readline()
-                print(line)
 
                 line = line.replace("\n", "").rsplit(" : ",1)[1]
     
@@ -727,7 +728,7 @@ class Free_Text_Searcher:
             tf = curr_node.tf
 
             #computes document weight for word
-            w_d = compute_weight(N, df, tf, "l", "n")
+            w_d = self.compute_weight(N, df, tf, "l", "n")
 
             #add to scores for respective document
             scores[docID] = scores[docID] + w_q*w_d
@@ -764,6 +765,18 @@ class Free_Text_Searcher:
             scores[d] = scores[d]/docs[d]
 
         return scores
+
+    #retrieves documents with top K scores
+    def create_ranking(self, scores, K):
+
+        ranking_items = scores.items()
+
+        top_lK = heapq.nlargest(10*K, ranking_items, key=lambda d: d[1])
+        ranking = sorted(top_lK, key=lambda d: (-d[1], d[0]))
+
+        if len(ranking) < K:
+            return ranking
+        return ranking[:K]
 
     def run_search(self, dict_file, postings_file, query, results_file):
 
@@ -810,18 +823,11 @@ def run_search(dict_file, postings_file, queries_file, results_file):
     print('running search on the queries...')
 
 
-    #reads sanity-queries
-    with open(postings_file) as file:
-                    file.seek(26982)
-                    print(file.tell())
-                    
-                    line = file.readline()
-                    print(line)
-
     with open(queries_file, 'r', encoding='utf8', errors='ignore') as file:
         query = file.readline()
 
     if check_boolean_search(query):
+        print("hi")
         searcher = Boolean_Retrieval_Searcher()
 
     else:

@@ -193,7 +193,7 @@ def write_into_file(out_postings, postingsList, out_dict):
             out.write(entry_postings)
 
             #update pointer
-            position = position + len(entry_postings)
+            position = position + len(entry_postings.encode('utf-8'))
 
     
 
@@ -231,6 +231,9 @@ def create_dict(data_dir, out_dict, out_postings):
         court = entry[4]
 
         new_tokens = tokenize(text)
+
+        for idx, token in enumerate(new_tokens,0):
+            new_tokens[idx] = format_tokens(token)
 
         postingsLists[docID] = new_tokens
         token_list = token_list + new_tokens
