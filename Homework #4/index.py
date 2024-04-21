@@ -39,10 +39,13 @@ def print_status(string_to_print, i, period):
         print(string_to_print)
         return
     
-#get list of document names
+#get entries in csv file
 def retrive_entries(data_dir, csv_size_limit):
 
+    #only used to limit number of documents considered during testing
     i = 0
+
+    #size limit needs to be extended
     csv.field_size_limit(csv_size_limit)
     entries = []
 
@@ -50,11 +53,12 @@ def retrive_entries(data_dir, csv_size_limit):
       datareader = csv.reader(csvfile)
       next(datareader)
       for row in datareader:
-          i = i+1
-          entries.append(row)
+          
+        entries.append(row)
 
-          if i > 100:
-              break
+        i = i+1
+        if i > 100:
+            break
 
     return entries
 
@@ -167,10 +171,9 @@ def write_into_file(out_postings, postingsList, out_dict):
 
             #calculate distance between skips
             skip_step = int(math.sqrt(len(item["postings_list"])))
-            current_key = re.sub(r'[\x00-\x1f]', '', item['key'])
 
             #create entry for dictionary
-            dict.write(f"{position} {current_key} {item['df']}\n")
+            dict.write(f"{position} {item['key']} {item['df']}\n")
 
             pListStr = []
             
@@ -178,16 +181,16 @@ def write_into_file(out_postings, postingsList, out_dict):
             for idx, c in enumerate(sorted(item["postings_list"].keys()),0):
                 
                 if idx%skip_step == 0 and idx+skip_step<len(item["postings_list"]):
+                    #if skip pointer add to end of entry
                     pListStr.append(f"({c},{item['postings_list'][c]},{int(idx+skip_step)})")
 
                 else:
+
+                    #if no skip pointer use -1 instead
                     pListStr.append(f"({c},{item['postings_list'][c]},-1)")
 
             #create entry for postings file
-            entry_postings =  f"{current_key} : {' '.join(pListStr)}\n"
-            print(entry_postings)
-            print(len(entry_postings))
-            print(position)
+            entry_postings =  f"{item['key']} : {' '.join(pListStr)}\n"
 
             #write into postings file
             out.write(entry_postings)
@@ -209,6 +212,7 @@ def create_dict(data_dir, out_dict, out_postings):
     
     print("creating dict...")
 
+    #retrieve all entries
     entries = retrive_entries(data_dir, 1000000000)
 
     #list with all postings
@@ -224,18 +228,26 @@ def create_dict(data_dir, out_dict, out_postings):
     token_list = []
     
     for entry in entries:
+
+        #read out all structure elements of entry (possibly used at later stage)
         docID = entry[0]
         title = entry[1]
-        text = re.sub(r'[\x00-\x1f]', '', entry[2])
+        text = entry[2]
         date = entry[3]
         court = entry[4]
 
+        #tokenize text
+        #positional indexing could be implemented here!
         new_tokens = tokenize(text)
 
+        #format all tokens (stemming and lowering)
         for idx, token in enumerate(new_tokens,0):
             new_tokens[idx] = format_tokens(token)
 
+        #add tokens to postings list
         postingsLists[docID] = new_tokens
+
+        #add tokens to overall tokens list (only needed for testing purposes can be deleted later)
         token_list = token_list + new_tokens
                 
     write_into_file(out_postings, postingsLists, out_dict)

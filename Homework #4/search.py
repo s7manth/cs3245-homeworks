@@ -32,7 +32,7 @@ def tokenize(text):
     return new_tokens
 
 
-#class Node for LinkedList
+#class Node for LinkedList (Boolean retrieval)
 class Node_Boolean_Retrieval:
     def __init__(self, data):
 
@@ -40,7 +40,7 @@ class Node_Boolean_Retrieval:
 
         data = data.split(",")
 
-        #data of this node
+        #docID of this node
         self.data = int(data[0])
 
         #pointer to next node
@@ -63,23 +63,6 @@ class Node_Boolean_Retrieval:
         self.next = node
 
         return node
-
-#class Node for LinkedList
-class Node_Vector_Space:
-    def __init__(self, data):
-
-        #pointer to next node
-        self.next = None
-       
-        data = data[1:-1]
-        data = data.split(",")
-
-        self.id = int(data[0])
-
-        self.tf = int(data[1])
-
-    def __repr__(self):
-        return f"{self.id}"
 
 #class LinkedList
 class LinkedList_Boolean_Retrieval:
@@ -138,6 +121,25 @@ class LinkedList_Boolean_Retrieval:
                 currNode = currNode.next
 
             currNode.next = node
+
+
+#class Node for LinkedList (Vector Space)
+class Node_Vector_Space:
+    def __init__(self, data):
+
+        #pointer to next node
+        self.next = None
+       
+        data = data[1:-1]
+        data = data.split(",")
+
+        self.id = int(data[0])
+
+        self.tf = int(data[1])
+
+    def __repr__(self):
+        return f"{self.id}"
+
 
 #class LinkedList
 class LinkedList_Vector_Space:
@@ -827,7 +829,6 @@ def run_search(dict_file, postings_file, queries_file, results_file):
         query = file.readline()
 
     if check_boolean_search(query):
-        print("hi")
         searcher = Boolean_Retrieval_Searcher()
 
     else:
