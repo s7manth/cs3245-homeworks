@@ -1,36 +1,71 @@
-import re
-import nltk
 import sys
 import getopt
-from nltk.stem import *
-from time import perf_counter
 import math
+import string
 import heapq
 
+from time import perf_counter
+from nltk.stem.porter import PorterStemmer
+from nltk.corpus import stopwords
+from nltk.util import ngrams
+from nltk import sent_tokenize, word_tokenize
 
 # help function to format tokens
-def format_tokens(token):
-    stemmer = nltk.PorterStemmer()
+# def format_tokens(token):
+#     stemmer = PorterStemmer()
 
-    result = stemmer.stem(token)
-    result = result.lower()
+#     result = stemmer.stem(token)
+#     result = result.lower()
 
-    return result
-
-
-# function used to tokenize text
-def tokenize(text):
-    new_tokens = []
-    # text = text.lower()
-    # iterate thorugh lines and add tokens to token set
-    new_sentences = nltk.tokenize.sent_tokenize(text)
-    for sentence in new_sentences:
-        new_tokens = new_tokens + nltk.tokenize.word_tokenize(sentence)
-
-    return new_tokens
+#     return result
 
 
-# class Node for LinkedList (Boolean retrieval)
+# # function used to tokenize text
+# def tokenize(text):
+#     new_tokens = []
+#     # text = text.lower()
+#     # iterate thorugh lines and add tokens to token set
+#     new_sentences = nltk.tokenize.sent_tokenize(text)
+#     for sentence in new_sentences:
+#         new_tokens = new_tokens + nltk.tokenize.word_tokenize(sentence)
+
+#     return new_tokens
+
+#opens dictionary file and creates object mapping word to position in postingsfile
+def read_dictionary(dict_file):
+
+    dictionary  = {}
+    docs  = {}
+
+    in_dictionary = True
+
+    with open(dict_file, "rb") as file:
+        lines = file.readlines()
+
+        for _,line in enumerate(lines,0):
+
+            line = line.decode('utf-8')
+
+            if line == "\n":
+                in_dictionary = False
+                continue
+            
+            if in_dictionary:
+                
+                print(line.split(","))
+                pointer = line.split(",")[0]
+                word = line.split(",")[1]
+                df = line.split(",")[2].replace("\n","")
+
+                dictionary[word] = {"pointer": pointer, "df": df}
+            else:
+                docID = int(line.split(" ")[0])
+                docLength = float(line.split(" ")[1].replace("\n",""))
+
+                docs[docID] = docLength
+    
+    return dictionary, docs
+#class Node for LinkedList (Boolean retrieval)
 class Node_Boolean_Retrieval:
     def __init__(self, data):
         data = data[1:-1]
@@ -65,6 +100,7 @@ class Node_Boolean_Retrieval:
 class LinkedList_Boolean_Retrieval:
     def __init__(self):
         self.head = None
+        self.tail = None
 
     def __repr__(self):
         if self.head == None:
@@ -80,6 +116,22 @@ class LinkedList_Boolean_Retrieval:
 
         return resString.rstrip(" ")
 
+    def add_node_quick(self, data):
+
+        #create node to add
+        node = Node_Boolean_Retrieval(data)
+
+        if self.head == None:
+            self.head = node
+            self.tail = node
+        else:
+
+            self.tail.next = node
+
+            self.tail = self.tail.next
+
+        return node
+    
     def add_node(self, data, idx):
         # create node to add
         node = Node_Boolean_Retrieval(data)
@@ -87,6 +139,7 @@ class LinkedList_Boolean_Retrieval:
         # if linkedlist is empty add new node as head
         if self.head == None:
             self.head = node
+            self.tail = node
         else:
             currNode = self.head
 
@@ -100,20 +153,30 @@ class LinkedList_Boolean_Retrieval:
 
             # add node to list
             currNode.next = node
+            self.tail = node
 
         return node
 
     # link other list to this list
     def add_list(self, node):
+        
+        #if list empty set start of new list as head
         if self.head == None:
             self.head = node
+
+            #assign tail of list
+            while node.next:
+                node = node.next
+            self.tail = node
+
         else:
-            currNode = self.head
+            #add new list to tail
+            self.tail.next = node
 
-            while currNode.next:
-                currNode = currNode.next
-
-            currNode.next = node
+        #assign tail of list
+        while node.next:
+            node = node.next
+            self.tail = node
 
 
 # class Node for LinkedList (Vector Space)
@@ -180,6 +243,9 @@ class BasicTerm:
     def __init__(self, word, dictionary, postings_file):
         stemmer = PorterStemmer()
 
+        if self.word.startswith('"') and self.word.endswith('"'):
+            word = word[1:-1]
+
         result = word.lower()
         result = stemmer.stem(word)
 
@@ -208,13 +274,14 @@ class BasicTerm:
         return linkedList
 
     def evaluate(self):
+
+       
+
         return self.retrieve_list()
 
-
-# Class to compute intermediary results of queries
-class Term:
-    def __init__(self, queryL, queryR, operation, dictionary, postings_file, full_list):
-        # left side of term
+    def __init__(self, queryL, queryR, operation, dictionary, postings_file):
+        
+        #left side of term
         self.queryL = queryL
 
         # right side of term
@@ -225,12 +292,12 @@ class Term:
 
         self.postings_file = postings_file
         self.dictionary = dictionary
-
-        self.full_list = full_list
-
-    # creates Term object from raw query
+       
+    #creates Term object from raw query
     def evaluateQuery(self, query):
-        # return empty list of empty queries
+
+        
+        #return empty list of empty queries
         if query == "":
             return LinkedList_Boolean_Retrieval()
 
@@ -257,75 +324,12 @@ class Term:
 
         # operation of term
         operation = None
+                
+        #iterate through all elements to find AND-operator (second lowest precedence)
+        for idx, element in enumerate(elements,0):
 
-        # check if currently in parentheses; if yes ignore any operations
-        parentheses = False
-
-        # check if parantheses found in query
-        parenthesesUsed = False
-
-        # iterate through all elements to find OR-operator (lowest precedence)
-        for idx, element in enumerate(elements, 0):
-            # check if start of parentheses and adjust state variables
-            if element[0][0] == "(":
-                parentheses = True
-                parenthesesUsed = True
-                continue
-
-            # check if end of parentheses and adjust state variables
-            if element[-1][-1] == ")":
-                parentheses = False
-
-                continue
-
-            # if inside of parantheses ignore token; they will be processed later
-            if parentheses:
-                continue
-
-            # if OR-operator found create OR-Term
-            if element in ["OR"]:
-                # assign left and right side
-                l_list = elements[:idx]
-                r_list = elements[idx + 1 :]
-
-                # assign operator
-                operation = element
-
-                # transfer lists into strings for term
-                queryL = " ".join(l_list)
-                queryR = " ".join(r_list)
-
-                term = Term(
-                    queryL,
-                    queryR,
-                    operation,
-                    self.dictionary,
-                    self.postings_file,
-                    self.full_list,
-                )
-
-                # return evaluated term as LinkedList
-                return term.evaluate()
-
-        # iterate through all elements to find AND-operator (second lowest precedence)
-        for idx, element in enumerate(elements, 0):
-            # check if start of parentheses and adjust state variables
-            if element[0][0] == "(":
-                parentheses = True
-                parenthesesUsed = True
-                continue
-
-            # check if end of parentheses and adjust state variables
-            if element[-1][-1] == ")":
-                parentheses = False
-
-                continue
-
-            # if inside of parantheses ignore token; they will be processed later
-            if parentheses:
-                continue
-
-            # if NOT-operator found create AND-Term
+            print(element)
+            #if NOT-operator found create AND-Term
             if element in ["AND"]:
                 # assign left and right side
                 l_list = elements[:idx]
@@ -338,76 +342,13 @@ class Term:
                 queryL = " ".join(l_list)
                 queryR = " ".join(r_list)
 
-                term = Term(
-                    queryL,
-                    queryR,
-                    operation,
-                    self.dictionary,
-                    self.postings_file,
-                    self.full_list,
-                )
+                
+                term = Term(queryL, queryR, operation, self.dictionary, self.postings_file)
 
                 # return evaluated term as LinkedList
                 return term.evaluate()
-
-        for idx, element in enumerate(elements, 0):
-            # check if start of parentheses and adjust state variables
-            if element[0][0] == "(":
-                parentheses = True
-                parenthesesUsed = True
-                continue
-
-            # check if end of parentheses and adjust state variables
-            if element[-1][-1] == ")":
-                parentheses = False
-
-                continue
-
-            # if inside of parantheses ignore token; they will be processed later
-            if parentheses:
-                continue
-
-            # if NOT-operator found create NOT-Term
-            if element in ["NOT"]:
-                # assign left and right side
-                l_list = []
-                r_list = elements[idx + 1 :]
-
-                # assign operator
-                operation = element
-
-                # transfer lists into strings for term
-                queryL = " ".join(l_list)
-                queryR = " ".join(r_list)
-
-                term = Term(
-                    queryL,
-                    queryR,
-                    operation,
-                    self.dictionary,
-                    self.postings_file,
-                    self.full_list,
-                )
-
-                # return evaluated term as LinkedList
-                return term.evaluate()
-
-        # if the whole term is inside parantheses cut parantheses
-        if r_list == [] and l_list == [] and parenthesesUsed:
-            queryL = query[1:-1]
-
-        # create new term with modified query (OR-operation can be uses unary if right side of term is empty)
-        operation = "OR"
-        term = Term(
-            queryL,
-            queryR,
-            operation,
-            self.dictionary,
-            self.postings_file,
-            self.full_list,
-        )
-
-        return term.evaluate()
+            
+        return LinkedList_Boolean_Retrieval()
 
     def AND(self):
         result = LinkedList_Boolean_Retrieval()
@@ -416,6 +357,10 @@ class Term:
         self.left = self.evaluateQuery(self.queryL)
         self.right = self.evaluateQuery(self.queryR)
 
+        print(self.queryL)
+        print(self.queryR)
+
+        
         left = self.left.head
         right = self.right.head
 
@@ -448,108 +393,21 @@ class Term:
                     left = left.next
                 continue
 
-        return result
-
+        return result 
+    #not relevant
     def OR(self):
-        result = LinkedList_Boolean_Retrieval()
-        resultTail = None
-        idx = 0
-
+        
         self.left = self.evaluateQuery(self.queryL)
 
         self.right = self.evaluateQuery(self.queryR)
-
-        left = self.left.head
+        
         right = self.right.head
 
         if right == None:
             return self.left
-        if left == None:
+        else:
             return self.right
 
-        while left != None and right != None:
-            if left.data == right.data:
-                if resultTail == None:
-                    resultTail = result.add_node(f"({right.data},-1,-1)", idx)
-                else:
-                    resultTail = resultTail.add_node(f"({right.data},-1,-1)")
-
-                idx = idx + 1
-                right = right.next
-                left = left.next
-                continue
-
-            if left.data > right.data:
-                while right != None and right.data < left.data:
-                    if resultTail == None:
-                        resultTail = result.add_node(f"({right.data},-1,-1)", idx)
-                    else:
-                        resultTail = resultTail.add_node(f"({right.data},-1,-1)")
-
-                    idx = idx + 1
-                    right = right.next
-                continue
-
-            if left.data < right.data:
-                while left != None and left.data < right.data:
-                    if resultTail == None:
-                        resultTail = result.add_node(f"({left.data},-1,-1)", idx)
-                    else:
-                        resultTail = resultTail.add_node(f"({left.data},-1,-1)")
-                    idx = idx + 1
-                    left = left.next
-                continue
-
-        if right == None and left != None:
-            result.add_list(left)
-
-        if left == None and right != None:
-            result.add_list(right)
-
-        return result
-
-    def NOT(self):
-        result = LinkedList_Boolean_Retrieval()
-        resultTail = None
-        idx = 0
-
-        self.right = self.evaluateQuery(self.queryR)
-        self.left = self.full_list
-
-        right = self.right.head
-        left = self.left.head
-
-        if right == None:
-            return self.left
-
-        while left != None and right != None:
-            if left.data == right.data:
-                right = right.next
-                left = left.next
-                continue
-
-            if left.data > right.data:
-                while right.skip != None and right.skip.data <= left.data:
-                    right = right.skip
-                while right != None and right.data < left.data:
-                    right = right.next
-                continue
-
-            if left.data < right.data:
-                while left != None and left.data < right.data:
-                    if resultTail == None:
-                        resultTail = result.add_node(f"({left.data},-1,-1)", idx)
-                    else:
-                        resultTail = resultTail.add_node(f"({left.data},-1,-1)")
-
-                    idx = idx + 1
-                    left = left.next
-                continue
-
-        if left != None:
-            result.add_list(left)
-
-        return result
 
     def evaluate(self):
         if self.operation == "AND":
@@ -557,56 +415,24 @@ class Term:
 
         if self.operation == "OR":
             return self.OR()
-
-        if self.operation == "NOT":
-            return self.NOT()
+        
 
 
 class Boolean_Retrieval_Searcher:
-    # opens dictionary file and creates object mapping word to position in postingsfile
-    def read_dictionary(self, dict_file):
-        dictionary = {}
-        docs = {}
-
-        in_dictionary = True
-
-        with open(dict_file) as file:
-            lines = file.readlines()
-
-            for _, line in enumerate(lines, 0):
-                if line == "\n":
-                    in_dictionary = False
-                    continue
-
-                if in_dictionary:
-                    pointer = line.split(" ")[0]
-                    word = line.split(" ")[1]
-                    df = line.split(" ")[2].replace("\n", "")
-
-                    dictionary[word] = {"pointer": pointer, "df": df}
-                else:
-                    docID = int(line.split(" ")[0])
-                    docLength = float(line.split(" ")[1].replace("\n", ""))
-
-                    docs[docID] = docLength
-
-        return dictionary, docs
 
     def run_search(self, dict_file, postings_file, query, results_file):
         dictionary, _ = self.read_dictionary(dict_file)
 
-        # pre compute LinkedList of all elements for
-        full_list_term = BasicTerm('""', dictionary, postings_file)
-        full_list = full_list_term.evaluate()
+        dictionary,_ = read_dictionary(dict_file)
+            
+        #pre compute LinkedList of all elements for 
         start = perf_counter()
-        # term = Term("american OR NOT analyst", "", "OR", dictionary, postings_file, full_list)
-        # print(term.evaluate())
 
         out = open(results_file, "w")
 
         query = query.rstrip("\n")
-
-        term = Term(query, "", "OR", dictionary, postings_file, full_list)
+        
+        term = Term(query, "", "OR", dictionary, postings_file)
         out.write(f"{str(term.evaluate())}\n")
 
         end = perf_counter()
@@ -615,46 +441,18 @@ class Boolean_Retrieval_Searcher:
 
 
 class Free_Text_Searcher:
-    # opens dictionary file and creates object mapping word to position in postingsfile
-    def read_dictionary(self, dict_file):
-        dictionary = {}
-        docs = {}
-
-        in_dictionary = True
-
-        with open(dict_file) as file:
-            lines = file.readlines()
-
-            for _, line in enumerate(lines, 0):
-                if line == "\n":
-                    in_dictionary = False
-                    continue
-
-                if in_dictionary:
-                    pointer = line.split(" ")[0]
-                    word = line.split(" ")[1]
-                    df = line.split(" ")[2].replace("\n", "")
-
-                    dictionary[word] = {"pointer": pointer, "df": df}
-                else:
-                    docID = int(line.split(" ")[0])
-                    docLength = float(line.split(" ")[1].replace("\n", ""))
-
-                    docs[docID] = docLength
-
-        return dictionary, docs
+    
+   
 
     # reads postings list from file into memory for a single word
     def read_postings_list(self, word, dictionary, postings_file):
         if word not in dictionary.keys():
             return LinkedList_Vector_Space()
 
-        with open(postings_file, "r") as file:
-            file.seek(int(dictionary[word]["pointer"]))
-
-            line = file.readline()
-
-            line = line.replace("\n", "").rsplit(" : ", 1)[1]
+        with open(postings_file, 'rb') as file:
+                file.seek(int(dictionary[word]["pointer"]))
+                
+                line = file.readline()
 
         linkedList = LinkedList_Vector_Space()
 
@@ -723,8 +521,22 @@ class Free_Text_Searcher:
         # init scores
         scores = {}
 
+        stemmer = PorterStemmer()  # stemmer initialisation
+        sws = set(stopwords.words("english"))  # stopwords
+        punct = set(string.punctuation)  # punctuations
+
+        stopword_filter = lambda word: word not in sws  # stopword removal
+        punctuation_filer = lambda word: word not in punct # punctuation removal
+
         # format query and get tokens
-        query_tokens = [format_tokens(token) for token in tokenize(query)]
+        query_tokens = [
+            stemmer.stem(word).lower()  # stemming
+            for st in sent_tokenize(query)  # document to lines tokenisation
+            for word in word_tokenize(st)  # lines to words tokenisations
+        ]
+
+        query_tokens = list(filter(stopword_filter, query_tokens))
+        query_tokens = list(filter(punctuation_filer, query_tokens))
 
         # go through every unique word in query
         for word in set(query_tokens):
@@ -758,8 +570,9 @@ class Free_Text_Searcher:
         return ranking[:K]
 
     def run_search(self, dict_file, postings_file, query, results_file):
-        # read from files
-        dictionary, docs = self.read_dictionary(dict_file)
+
+        #read from files
+        dictionary, docs = read_dictionary(dict_file)
 
         start = perf_counter()
 
