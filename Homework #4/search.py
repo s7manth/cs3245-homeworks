@@ -52,7 +52,6 @@ def read_dictionary(dict_file):
             
             if in_dictionary:
                 
-                print(line.split(","))
                 pointer = line.split(",")[0]
                 word = line.split(",")[1]
                 df = line.split(",")[2].replace("\n","")
@@ -238,20 +237,29 @@ class LinkedList_Vector_Space:
         return node
 
 
+
 # Class to retrieve postings list of single token
 class BasicTerm:
     def __init__(self, word, dictionary, postings_file):
         stemmer = PorterStemmer()
 
-        if self.word.startswith('"') and self.word.endswith('"'):
+        if word.startswith('"') and word.endswith('"'):
             word = word[1:-1]
 
-        result = word.lower()
-        result = stemmer.stem(word)
+        words = []
+        for token in word_tokenize(word):
+            result = word.lower()
+            result = stemmer.stem(token)
+            words.append(result)
 
-        self.word = result
+        
+
+
+        self.word = " ".join(words)
         self.dictionary = dictionary
         self.postings_file = postings_file
+
+        print(self.word)
 
     def retrieve_list(self):
         if self.word not in self.dictionary.keys():
@@ -271,6 +279,9 @@ class BasicTerm:
 
             linkedList.add_node(data, idx)
 
+        print(linkedList)
+        print(self.word)
+
         return linkedList
 
     def evaluate(self):
@@ -278,6 +289,8 @@ class BasicTerm:
        
 
         return self.retrieve_list()
+    
+class Term:
 
     def __init__(self, queryL, queryR, operation, dictionary, postings_file):
         
@@ -305,9 +318,8 @@ class BasicTerm:
         elements = query.split(" ")
 
         # if query just a single token create BasicTerm to return postings list
-        if len(elements) == 1:
-            element = elements[0].lstrip("(").rstrip(")")
-            term = BasicTerm(element, self.dictionary, self.postings_file)
+        if "AND" not in query:
+            term = BasicTerm(query, self.dictionary, self.postings_file)
             return term.evaluate()
 
         # tokens of left side of term
@@ -328,7 +340,7 @@ class BasicTerm:
         #iterate through all elements to find AND-operator (second lowest precedence)
         for idx, element in enumerate(elements,0):
 
-            print(element)
+            
             #if NOT-operator found create AND-Term
             if element in ["AND"]:
                 # assign left and right side
@@ -356,10 +368,6 @@ class BasicTerm:
 
         self.left = self.evaluateQuery(self.queryL)
         self.right = self.evaluateQuery(self.queryR)
-
-        print(self.queryL)
-        print(self.queryR)
-
         
         left = self.left.head
         right = self.right.head
@@ -421,7 +429,7 @@ class BasicTerm:
 class Boolean_Retrieval_Searcher:
 
     def run_search(self, dict_file, postings_file, query, results_file):
-        dictionary, _ = self.read_dictionary(dict_file)
+        dictionary, _ = read_dictionary(dict_file)
 
         dictionary,_ = read_dictionary(dict_file)
             
