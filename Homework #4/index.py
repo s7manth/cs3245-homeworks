@@ -1,39 +1,15 @@
-import nltk
 import sys
 import getopt
 import math
 import csv
+import string
 
 from collections import Counter
-
-
-# help function to format tokens
-def format_tokens(token):
-    stemmer = nltk.PorterStemmer()
-    result = stemmer.stem(token)
-    result = result.lower()
-    return result
-
-
-# function used to tokenize text
-def tokenize(text):
-    new_tokens = []
-    # text = text.lower()
-    # iterate thorugh lines and add tokens to token set
-    new_sentences = nltk.tokenize.sent_tokenize(text)
-    for sentence in new_sentences:
-        new_tokens = new_tokens + nltk.tokenize.word_tokenize(sentence)
-
-    return new_tokens
-
-
-# help function to print progess of process
-def print_status(string_to_print, i, period):
-    # only print at every ith step
-    if i % period == 0:
-        print(string_to_print)
-        return
-
+from nltk.stem.porter import PorterStemmer
+from nltk.corpus import stopwords
+from nltk.util import ngrams
+from nltk import sent_tokenize, word_tokenize
+from tqdm import tqdm
 
 # get entries in csv file
 def retrive_entries(data_dir, csv_size_limit):
@@ -127,7 +103,6 @@ def consolidate(postings_unsorted):
             curr_item = None
             curr_term = item["key"]
             curr_value_list = {}
-            print(item)
             curr_value_list[int(item["doc"])] = 1
 
     # add last postings list to result
@@ -165,7 +140,7 @@ def write_into_file(out_postings, postingsList, out_dict):
             skip_step = int(math.sqrt(len(item["postings_list"])))
 
             # create entry for dictionary
-            dict.write(f"{position} {item['key']} {item['df']}\n")
+            dict.write(f"{position},{item['key']},{item['df']}\n")
 
             pListStr = []
 
@@ -175,9 +150,7 @@ def write_into_file(out_postings, postingsList, out_dict):
                     item["postings_list"]
                 ):
                     # if skip pointer add to end of entry
-                    pListStr.append(
-                        f"({c},{item['postings_list'][c]},{int(idx+skip_step)})"
-                    )
+                    pListStr.append(f"({c},{item['postings_list'][c]},{int(idx+skip_step)})")
 
                 else:
                     # if no skip pointer use -1 instead
@@ -190,7 +163,7 @@ def write_into_file(out_postings, postingsList, out_dict):
             out.write(entry_postings)
 
             # update pointer
-            position = position + len(entry_postings.encode("utf-8"))
+            position += len(entry_postings.encode("utf-8"))
 
     # write document lengths into dictionary.txt seperated by empty line
     dict.write("\n")
@@ -210,25 +183,40 @@ def create_dict(data_dir, out_dict, out_postings):
     # list with all postings
     postings_lists = {}
 
-    token_list = []
+    stemmer = PorterStemmer()  # stemmer initialisation
+    sws = set(stopwords.words("english"))  # stopwords
+    punct = set(string.punctuation)  # punctuations
 
-    for entry in entries:
+    stopword_filter = lambda word: word not in sws  # stopword removal
+    punctuation_filer = lambda word: word not in punct # punctuation removal
+
+    for entry in tqdm(entries):
         # read out all structure elements of entry (possibly used at later stage)
         docID, _title, text, _date, _court = entry
 
         # tokenize text
         # positional indexing could be implemented here!
-        new_tokens = tokenize(text)
+        tokens = [
+            stemmer.stem(word).lower()  # stemming
+            for st in sent_tokenize(text)  # document to lines tokenisation
+            for word in word_tokenize(st)  # lines to words tokenisations
+        ]
 
-        # format all tokens (stemming and lowering)
-        for idx, token in enumerate(new_tokens, 0):
-            new_tokens[idx] = format_tokens(token)
+        tokens = list(filter(stopword_filter, tokens))
+        tokens = list(filter(punctuation_filer, tokens))
+
+        # bigrams and trigrams
+        bigrams = ngrams(tokens, 2)
+        trigrams = ngrams(tokens, 3)
+
+        bigrams = list(map(lambda x: " ".join(x), bigrams))
+        trigrams = list(map(lambda x: " ".join(x), trigrams))
+
+        tokens += bigrams
+        tokens += trigrams
 
         # add tokens to postings list
-        postings_lists[docID] = new_tokens
-
-        # add tokens to overall tokens list (only needed for testing purposes can be deleted later)
-        token_list += new_tokens
+        postings_lists[docID] = tokens
 
     write_into_file(out_postings, postings_lists, out_dict)
 
