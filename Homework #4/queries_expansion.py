@@ -5,7 +5,6 @@ from nltk.corpus import wordnet
 # Initialize Porter Stemmer for stemming words
 stemmer = PorterStemmer()
 
-
 # Function to map NLTK POS tags to WordNet POS tags
 def wordnet_tag(tag):
     if tag[0] == "N":
@@ -17,7 +16,6 @@ def wordnet_tag(tag):
     elif tag[0] == "R":
         return wordnet.ADV
     return None
-
 
 # Function to get unique synonyms for a word
 def unique_synonyms(synonyms):

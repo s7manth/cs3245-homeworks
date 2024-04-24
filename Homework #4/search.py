@@ -16,29 +16,31 @@ def read_dictionary(dict_file):
     docs = {}
     in_dictionary = True
 
-    with open(dict_file, "rb") as file:
-        lines = file.readlines()
+    with open(dict_file, "r") as file:
+        for line in file:
+            if line == "\n":
+                in_dictionary = False
+                continue
 
-    for _, line in enumerate(lines, 0):
-        line = line.decode("utf-8")
+            if in_dictionary:
+                line = line.strip()
+                tks = line.split(",")
+                pointer = tks[0]
+                word = ",".join(tks[1:-1])
+                df = tks[-1]
 
-        if line == "\n":
-            in_dictionary = False
-            continue
+                dictionary[word] = {
+                    "pointer": pointer, 
+                    "df": df
+                }
+            else:
+                tks = line.strip().split(" ")
+                docID = int(tks[0])
+                docLength = float(tks[1])
 
-        if in_dictionary:
-            pointer = line.split(",")[0]
-            word = line.split(",")[1]
-            df = line.split(",")[2].replace("\n", "")
-
-            dictionary[word] = {
-                "pointer": pointer, 
-                "df": df
-            }
-        else:
-            docID = int(line.split(" ")[0])
-            docLength = float(line.split(" ")[1].replace("\n", ""))
-            docs[docID] = docLength
+                # docID = int(line.split(" ")[0])
+                # docLength = float(line.split(" ")[1].replace("\n", ""))
+                docs[docID] = docLength
 
     return dictionary, docs
 
@@ -379,10 +381,8 @@ class Boolean_Retrieval_Searcher:
         self.K = K
 
     def run_search(self, dict_file, postings_file, query, results_file):
-        dictionary, _ = read_dictionary(dict_file)
-
-        # pre compute LinkedList of all elements for
         start = perf_counter()
+        dictionary, _ = read_dictionary(dict_file)
 
         query = query.rstrip("\n")
         term = Term(query, "", "OR", dictionary, postings_file)
@@ -541,10 +541,10 @@ class Free_Text_Searcher:
 
     def run_search(self, dict_file, postings_file, query, results_file):
         # read from files
-        dictionary, docs = read_dictionary(dict_file)
-
         start = perf_counter()
 
+        dictionary, docs = read_dictionary(dict_file)
+        
         # compute scores
         scores = self.compute_similarities(dictionary, query, postings_file, docs)
 
