@@ -370,9 +370,14 @@ class Term:
 
         if self.operation == "OR":
             return self.OR()
+            
 
 
 class Boolean_Retrieval_Searcher:
+
+    def __init__(self, K):
+        self.K = K
+
     def run_search(self, dict_file, postings_file, query, results_file):
         dictionary, _ = read_dictionary(dict_file)
 
@@ -381,12 +386,11 @@ class Boolean_Retrieval_Searcher:
 
         query = query.rstrip("\n")
         term = Term(query, "", "OR", dictionary, postings_file)
-        result = str(term.evaluate())
-
-        print(f"INFO: results {result}")
+        relevant_docs = str(term.evaluate()).split(" ")
+        result = relevant_docs[:min(len(relevant_docs), self.K)]
 
         with open(results_file, "w") as file:
-            file.write(result)
+            file.write(" ".join(result))
 
         end = perf_counter()
         print(f"Total time for boolean retrieval {end - start} seconds")
@@ -394,6 +398,10 @@ class Boolean_Retrieval_Searcher:
 
 class Free_Text_Searcher:
     # reads postings list from file into memory for a single word
+
+    def __init__(self, K):
+        self.K = K
+
     def read_postings_list(self, word, dictionary, postings_file):
         if word not in dictionary.keys():
             return LinkedList_Vector_Space()
@@ -520,16 +528,16 @@ class Free_Text_Searcher:
         return scores
 
     # retrieves documents with top K scores
-    def create_ranking(self, scores, K):
+    def create_ranking(self, scores):
         ranking_items = scores.items()
 
-        top_lK = heapq.nlargest(10 * K, ranking_items, key=lambda d: d[1])
+        top_lK = heapq.nlargest(10 * self.K, ranking_items, key=lambda d: d[1])
         ranking = sorted(top_lK, key=lambda d: (-d[1], d[0]))
 
-        if len(ranking) < K:
+        if len(ranking) < self.K:
             return ranking
 
-        return ranking[:K]
+        return ranking[:self.K]
 
     def run_search(self, dict_file, postings_file, query, results_file):
         # read from files
@@ -541,7 +549,7 @@ class Free_Text_Searcher:
         scores = self.compute_similarities(dictionary, query, postings_file, docs)
 
         # retrieve top 10 scores
-        rankings = self.create_ranking(scores, 10)
+        rankings = self.create_ranking(scores)
 
         # filter out score values and only keep docIDs
         docIDs = [str(item[0]) for item in rankings]
@@ -565,13 +573,15 @@ def run_search(dict_file, postings_file, queries_file, results_file):
     """
     print("running search on the queries...")
 
+    K = 20
+
     with open(queries_file, "r", encoding="utf8", errors="ignore") as file:
         query = file.readline()
 
     if check_boolean_search(query):
-        searcher = Boolean_Retrieval_Searcher()
+        searcher = Boolean_Retrieval_Searcher(K)
     else:
-        searcher = Free_Text_Searcher()
+        searcher = Free_Text_Searcher(K)
 
     searcher.run_search(dict_file, postings_file, query, results_file)
 
