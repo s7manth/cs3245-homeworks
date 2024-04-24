@@ -168,3 +168,8 @@ cython_debug/
 
 # Stash folder
 stash/
+
+# Experiments
+3245venv/
+cs3245-hw3
+cs3245-hw4
