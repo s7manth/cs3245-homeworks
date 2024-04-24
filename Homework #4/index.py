@@ -4,38 +4,23 @@ import math
 import csv
 import string
 
-from collections import Counter
+from collections import Counter, defaultdict
 from nltk.stem.porter import PorterStemmer
 from nltk.corpus import stopwords
 from nltk.util import ngrams
 from nltk import sent_tokenize, word_tokenize
 from tqdm import tqdm
 
-# get entries in csv file
-def retrive_entries(data_dir, csv_size_limit):
-    # size limit needs to be extended
-    csv.field_size_limit(csv_size_limit)
-    entries = []
-
-    with open(data_dir, "r", encoding="utf-8", errors="ignore") as csvfile:
-        datareader = csv.reader(csvfile)
-        next(datareader)
-        for row in datareader:
-            entries.append(row)
-
-    return entries
-
-
 # restructure postings object
-def invert_postings(inverted_postings):
-    postings_list = []
+# def invert_postings(inverted_postings):
+#     postings_list = []
 
-    # iterate through all docIDs and put them in list of dictionaries of all words they include
-    for docID in inverted_postings.keys():
-        for word in inverted_postings[docID]:
-            postings_list.append({"key": word, "doc": docID})
+#     # iterate through all docIDs and put them in list of dictionaries of all words they include
+#     for docID in inverted_postings.keys():
+#         for word in inverted_postings[docID]:
+#             postings_list.append({"key": word, "doc": docID})
 
-    return postings_list
+#     return postings_list
 
 
 # computes weights for words to calculate document length
@@ -44,21 +29,18 @@ def compute_weight(tf):
     dF = 1
     return tF * dF
 
-
 # calculates document length for cosine normalization
-def calculate_doc_length(postingsList):
-    lengths = {}
+# def calculate_doc_length(postingsList):
+#     lengths = {}
 
-    for docID in postingsList.keys():
-        counts = Counter(postingsList[docID])
-        countsValues = sorted(counts.values())
-        countsValuesWeighted = [compute_weight(value) for value in countsValues]
-        summation = sum(
-            countsValue * countsValue for countsValue in countsValuesWeighted
-        )
-        lengths[docID] = math.sqrt(summation)
+#     for docID in postingsList.keys():
+#         counts = Counter(postingsList[docID])
+#         countsValues = sorted(counts.values())
+#         countsValuesWeighted = [compute_weight(value) for value in countsValues]
+#         summation = sum(countsValue * countsValue for countsValue in countsValuesWeighted)
+#         lengths[docID] = math.sqrt(summation)
 
-    return lengths
+#     return lengths
 
 
 # consolidate postings to postings list
@@ -117,47 +99,49 @@ def consolidate(postings_unsorted):
 
 
 # writes indexing data into files
-def write_into_file(out_postings, postingsList, out_dict):
+def write_into_file(out_postings, out_dict, postings, document_length, vocabulary, document_frequency):
     # create postings lists
-    postings = invert_postings(postingsList)
+    # postings = invert_postings(postingsList)
 
     # compute document lengths
-    lengths = calculate_doc_length(postingsList)
+    # lengths = calculate_doc_length(postingsList)
 
     # consolidate postings list
-    result = consolidate(postings)
+    # result = consolidate(postings)
 
-    # open dictionary
-    dict = open(out_dict, "w")
+    # token -> { postion, df }
+    dictionary = dict()
 
     # start position for pointers
     position = 0
 
     with open(out_postings, "w") as out:
         # iterate through all postings
-        for item in result:
+        for token in vocabulary:
             # calculate distance between skips
-            skip_step = int(math.sqrt(len(item["postings_list"])))
+            skip_step = int(math.sqrt(len(postings[token])))
 
             # create entry for dictionary
-            dict.write(f"{position},{item['key']},{item['df']}\n")
+            # dict.write(f"{position},{item['key']},{item['df']}\n")
+            dictionary[token] = (position, document_frequency[token])
 
             pListStr = []
 
-            # sort postings according to docID
-            for idx, c in enumerate(sorted(item["postings_list"].keys()), 0):
-                if idx % skip_step == 0 and idx + skip_step < len(
-                    item["postings_list"]
-                ):
-                    # if skip pointer add to end of entry
-                    pListStr.append(f"({c},{item['postings_list'][c]},{int(idx+skip_step)})")
+            docs = postings[token].keys()
+            number_of_docs = len(docs)
+            sorted_postings = sorted(docs)
 
+            # sort postings according to docID
+            for idx, c in enumerate(sorted_postings):
+                if idx % skip_step == 0 and idx + skip_step < number_of_docs:
+                    # if skip pointer add to end of entry
+                    pListStr.append(f"({c},{postings[token][c]},{int(idx+skip_step)})")
                 else:
                     # if no skip pointer use -1 instead
-                    pListStr.append(f"({c},{item['postings_list'][c]},-1)")
+                    pListStr.append(f"({c},{postings[token][c]},-1)")
 
             # create entry for postings file
-            entry_postings = f"{item['key']} : {' '.join(pListStr)}\n"
+            entry_postings = f"{token} : {' '.join(pListStr)}\n"
 
             # write into postings file
             out.write(entry_postings)
@@ -165,12 +149,16 @@ def write_into_file(out_postings, postingsList, out_dict):
             # update pointer
             position += len(entry_postings.encode("utf-8"))
 
-    # write document lengths into dictionary.txt seperated by empty line
-    dict.write("\n")
-    for docID in lengths.keys():
-        dict.write(f"{docID} {lengths[docID]}\n")
 
-    dict.close()
+    with open(out_dict, "w") as file:
+        # write document lengths into dictionary.txt seperated by empty line
+        for k, v in dictionary.items():
+            file.write(f"{v[0]},{k},{v[1]}\n")
+
+        file.write("\n")
+
+        for docID in document_length:
+            file.write(f"{docID} {document_length[docID]}\n")
 
 
 # creates dictionary and prepares postings
@@ -178,10 +166,12 @@ def create_dict(data_dir, out_dict, out_postings):
     print("creating dict...")
 
     # retrieve all entries
-    entries = retrive_entries(data_dir, 1000000000)
+    csv.field_size_limit(1000000000)
 
-    # list with all postings
-    postings_lists = {}
+    postings = defaultdict(lambda: defaultdict(int)) # token -> { doc -> how many times in it? }
+    document_length = defaultdict(int) # doc -> length
+    vocabulary = set() # unique tokens
+    document_frequency = defaultdict(int) # token -> how many docs does it appear in? 
 
     stemmer = PorterStemmer()  # stemmer initialisation
     sws = set(stopwords.words("english"))  # stopwords
@@ -190,35 +180,48 @@ def create_dict(data_dir, out_dict, out_postings):
     stopword_filter = lambda word: word not in sws  # stopword removal
     punctuation_filer = lambda word: word not in punct # punctuation removal
 
-    for entry in tqdm(entries):
-        # read out all structure elements of entry (possibly used at later stage)
-        docID, _title, text, _date, _court = entry
+    with open(data_dir, "r", encoding="utf-8", errors="ignore") as csvfile:
+        datareader = csv.reader(csvfile)
+        next(datareader)
 
-        # tokenize text
-        # positional indexing could be implemented here!
-        tokens = [
-            stemmer.stem(word).lower()  # stemming
-            for st in sent_tokenize(text)  # document to lines tokenisation
-            for word in word_tokenize(st)  # lines to words tokenisations
-        ]
+        for entry in tqdm(datareader):
+            # read out all structure elements of entry (possibly used at later stage)
+            docID, _title, text, _date, _court = entry
 
-        tokens = list(filter(stopword_filter, tokens))
-        tokens = list(filter(punctuation_filer, tokens))
+            # tokenize text
+            # positional indexing could be implemented here!
+            tokens = [
+                stemmer.stem(word).lower()  # stemming
+                for st in sent_tokenize(text)  # document to lines tokenisation
+                for word in word_tokenize(st)  # lines to words tokenisations
+            ]
 
-        # bigrams and trigrams
-        bigrams = ngrams(tokens, 2)
-        trigrams = ngrams(tokens, 3)
+            tokens = list(filter(stopword_filter, tokens))
+            tokens = list(filter(punctuation_filer, tokens))
 
-        bigrams = list(map(lambda x: " ".join(x), bigrams))
-        trigrams = list(map(lambda x: " ".join(x), trigrams))
+            # bigrams and trigrams
+            bigrams = ngrams(tokens, 2)
+            trigrams = ngrams(tokens, 3)
 
-        tokens += bigrams
-        tokens += trigrams
+            bigrams = list(map(lambda x: " ".join(x), bigrams))
+            trigrams = list(map(lambda x: " ".join(x), trigrams))
 
-        # add tokens to postings list
-        postings_lists[docID] = tokens
+            tokens += bigrams
+            tokens += trigrams
 
-    write_into_file(out_postings, postings_lists, out_dict)
+            document_length[docID] = len(tokens)
+
+            for token in tokens:
+                if not token in vocabulary:
+                    vocabulary.add(token) # add the token to a dictionary of all existing tokens
+
+                if not docID in postings[token]:
+                    document_frequency[token] += 1 # track the number of documents the token appears in
+
+                postings[token][docID] += 1 # increasse the tf for the particlar token, doc pair
+
+
+    write_into_file(out_postings, out_dict, postings, document_length, vocabulary, document_frequency)
 
 
 def usage():
