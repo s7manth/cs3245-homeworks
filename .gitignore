@@ -169,5 +169,7 @@ cython_debug/
 # Stash folder
 stash/
 
-# Virtual environment
-cs3245/
+# Experiments
+3245venv/
+cs3245-hw3
+cs3245-hw4
