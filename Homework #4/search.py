@@ -462,13 +462,19 @@ class Free_Text_Searcher:
                 
                 line = file.readline()
 
+        line = line.decode('utf-8')
+
         linkedList = LinkedList_Vector_Space()
+
+        line
 
         values = line.split(" ")
 
+        values = values[values.index(":")+1:]
+
         for _, v in enumerate(values, 0):
             data = v
-
+           
             linkedList.add_node(data)
 
         return linkedList
@@ -542,6 +548,15 @@ class Free_Text_Searcher:
             for st in sent_tokenize(query)  # document to lines tokenisation
             for word in word_tokenize(st)  # lines to words tokenisations
         ]
+
+        bigrams = ngrams(query_tokens, 2)
+        trigrams = ngrams(query_tokens, 3)
+
+        bigrams = list(map(lambda x: " ".join(x), bigrams))
+        trigrams = list(map(lambda x: " ".join(x), trigrams))
+
+        query_tokens += bigrams
+        query_tokens += trigrams
 
         query_tokens = list(filter(stopword_filter, query_tokens))
         query_tokens = list(filter(punctuation_filer, query_tokens))
