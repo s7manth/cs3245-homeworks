@@ -4,6 +4,7 @@ import math
 import string
 import heapq
 import lzma
+<<<<<<< HEAD
 try: 
     import cPickle as pickle
 except:
@@ -15,6 +16,15 @@ from nltk.corpus import stopwords, wordnet
 from nltk.util import ngrams
 from nltk import sent_tokenize, word_tokenize, pos_tag
 
+=======
+import pickle
+
+from time import perf_counter
+from nltk.stem.porter import PorterStemmer
+from nltk.corpus import stopwords
+from nltk.util import ngrams
+from nltk import sent_tokenize, word_tokenize
+>>>>>>> 3f6cc68 (add pickle versions of indexing and searching)
 
 
 # opens dictionary file and creates object mapping word to position in postingsfile
@@ -56,6 +66,7 @@ def read_dictionary(dict_file):
     return dictionary, docs
 
 
+<<<<<<< HEAD
 def query_expansion(expression):
     # tokenise and get all possible synonyms
     token_list = word_tokenize(expression)
@@ -115,6 +126,8 @@ def get_synonyms(tokens):
 
     return synsets
 
+=======
+>>>>>>> 3f6cc68 (add pickle versions of indexing and searching)
 # class Node for LinkedList (Boolean retrieval)
 class Node_Boolean_Retrieval:
     def __init__(self, data):
@@ -319,6 +332,7 @@ class BasicTerm:
     def evaluate(self):
         return self.retrieve_list()
 
+<<<<<<< HEAD
 def top_k(synsets, k):
     if len(synsets) == 0 or synsets is None: return list()
 
@@ -331,6 +345,8 @@ def top_k(synsets, k):
     # return top k synonyms
     return list(map(lambda x: x[0], synonym_to_similarity_score[:k]))
 
+=======
+>>>>>>> 3f6cc68 (add pickle versions of indexing and searching)
 
 class Term:
     def __init__(self, queryL, queryR, operation, dictionary, postings_file):
@@ -460,6 +476,10 @@ class Term:
 
 class Boolean_Retrieval_Searcher:
     def run_search(self, dict_file, postings_file, query, results_file):
+<<<<<<< HEAD
+=======
+        start = perf_counter()
+>>>>>>> 3f6cc68 (add pickle versions of indexing and searching)
         dictionary, _ = read_dictionary(dict_file)
 
         query = query.rstrip("\n")
@@ -471,6 +491,12 @@ class Boolean_Retrieval_Searcher:
         with open(results_file, "w") as file:
             file.write(result)
 
+<<<<<<< HEAD
+=======
+        end = perf_counter()
+        print(f"Total time for boolean retrieval {end - start} seconds")
+
+>>>>>>> 3f6cc68 (add pickle versions of indexing and searching)
 
 class Free_Text_Searcher:
     # reads postings list from file into memory for a single word
@@ -614,7 +640,11 @@ class Free_Text_Searcher:
 
     def run_search(self, dict_file, postings_file, query, results_file):
         # read from files
+<<<<<<< HEAD
         
+=======
+        start = perf_counter()
+>>>>>>> 3f6cc68 (add pickle versions of indexing and searching)
 
         dictionary, docs = read_dictionary(dict_file)
 
@@ -631,6 +661,12 @@ class Free_Text_Searcher:
         with open(results_file, "w") as file:
             file.write(f'{" ".join(docIDs)}\n')
 
+<<<<<<< HEAD
+=======
+        end = perf_counter()
+        print(f"Total time {end - start} seconds")
+
+>>>>>>> 3f6cc68 (add pickle versions of indexing and searching)
 
 def check_boolean_search(query):
     return "AND" in query
@@ -643,22 +679,31 @@ def run_search(dict_file, postings_file, queries_file, results_file):
     """
     print("running search on the queries...")
 
+<<<<<<< HEAD
     start = perf_counter()
 
+=======
+>>>>>>> 3f6cc68 (add pickle versions of indexing and searching)
     with open(queries_file, "r", encoding="utf8", errors="ignore") as file:
         query = file.readline()
 
     if check_boolean_search(query):
         searcher = Boolean_Retrieval_Searcher()
     else:
+<<<<<<< HEAD
         query = query_expansion(query)
+=======
+>>>>>>> 3f6cc68 (add pickle versions of indexing and searching)
         searcher = Free_Text_Searcher()
 
     searcher.run_search(dict_file, postings_file, query, results_file)
 
+<<<<<<< HEAD
     end = perf_counter()
     print(f"Total time for boolean retrieval {end - start} seconds")
 
+=======
+>>>>>>> 3f6cc68 (add pickle versions of indexing and searching)
 
 def usage():
     print(
