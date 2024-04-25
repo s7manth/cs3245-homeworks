@@ -9,7 +9,8 @@ try:
 except:
     import pickle
 
-from collections import Counter, defaultdict
+from time import perf_counter
+from collections import defaultdict
 from nltk.stem.porter import PorterStemmer
 from nltk.corpus import stopwords
 from nltk.util import ngrams
@@ -93,6 +94,8 @@ def write_into_file(out_postings, out_dict, postings, document_length, vocabular
 def create_dict(data_dir, out_dict, out_postings):
     print("creating dict...")
 
+    start = perf_counter()
+
     # retrieve all entries
     csv.field_size_limit(1000000000)
 
@@ -150,6 +153,9 @@ def create_dict(data_dir, out_dict, out_postings):
 
 
     write_into_file(out_postings, out_dict, postings, document_length, vocabulary, document_frequency)
+
+    end = perf_counter()
+    print(f"Total time {end - start} seconds")
 
 
 def usage():

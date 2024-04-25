@@ -652,7 +652,7 @@ def run_search(dict_file, postings_file, queries_file, results_file):
     searcher.run_search(dict_file, postings_file, query, results_file)
 
     end = perf_counter()
-    print(f"Total time for boolean retrieval {end - start} seconds")
+    print(f"Total time {end - start} seconds")
 
 
 def usage():
