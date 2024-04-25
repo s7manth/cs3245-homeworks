@@ -37,7 +37,7 @@ def write_into_file(out_postings, out_dict, postings, document_length, vocabular
 
     with lzma.open(out_postings, "wb") as file:
         position = 0
-        for token in vocabulary:
+        for token in tqdm(vocabulary):
             # calculate distance between skips
             skip_step = int(math.sqrt(len(postings[token])))
 
